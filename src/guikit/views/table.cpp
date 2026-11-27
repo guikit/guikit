@@ -2051,7 +2051,7 @@ void detail::Table::RenderBody(
                     data->opts.emptyText.text,
                     emptyRect,
                     emptyFontSize,
-                    theme.ResolveColor(data->opts.emptyText.color, false, false, node->disabled, pal.textMuted),
+                    theme.ResolveTextColor(data->opts.emptyText, pal.textMuted, node->disabled),
                     0.5f,
                     0.5f
                 );
@@ -2401,7 +2401,7 @@ void detail::Table::RenderChromeAndScrollbars(
                 data->opts.footerText.text,
                 rightRect,
                 customFooterFont,
-                theme.ResolveColor(data->opts.footerText.color, false, false, node->disabled, pal.textSecondary),
+                theme.ResolveTextColor(data->opts.footerText, pal.textSecondary, node->disabled),
                 1.0f,
                 0.5f
             );

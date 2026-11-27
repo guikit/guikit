@@ -267,6 +267,19 @@ void ShellControls::RenderEngineControls(MainWindow& win, ToolbarScope& tb) {
                 }
             }
 
+            const bool csdSupported = win.SupportsCustomTitleBar();
+            bool customHeader = csdSupported && win.IsCustomTitleBar();
+            if (auto el = guikit::Element(ui, {
+                .label = "Custom HeaderBar",
+                .description = csdSupported ? "Client-Side Decorations (CSD)" : "Unavailable on this platform",
+                .layout = ElementLayout::Leading,
+                .disabled = !csdSupported
+            })) {
+                if (guikit::Switch(ui, customHeader, {.size = UiSize::Sm})) {
+                    (void)win.SetCustomTitleBar(customHeader);
+                }
+            }
+
             guikit::Separator(ui);
 
             if (auto el = guikit::Element(ui, {
@@ -385,35 +398,41 @@ void ShellControls::RenderTelemetryStatus(MainWindow& win, StatusBarScope& sb, b
             .dotColor = gpuSceneActive
                 ? theme.GetSemanticAccent(UiVariant::Success)
                 : theme.GetSemanticAccent(UiVariant::Info),
-            .color = gpuSceneActive ? StateColor::Success() : StateColor::Info()
+            .color = gpuSceneActive ? StateColor::Success() : StateColor::Info(),
+            .priority = -1
         });
     } else {
         sb.Item({
             .text = "GPU Shaders: CPU Fallback",
             .dotColor = theme.GetSemanticAccent(UiVariant::Warning),
-            .color = StateColor::Warning()
+            .color = StateColor::Warning(),
+            .priority = -1
         });
     }
 
     sb.Separator();
     sb.Item({
         .text = {metrics.GetFpsString(), {"0 FPS (Idle)", "999 FPS"}},
-        .color = StateColor::Secondary()
+        .color = StateColor::Secondary(),
+        .priority = -2
     });
     sb.Separator();
     sb.Item({
         .text = {metrics.GetCpuString(), {"CPU: 99.99 ms (100.0%)"}},
-        .color = StateColor::Secondary()
+        .color = StateColor::Secondary(),
+        .priority = -3
     });
     sb.Separator();
     sb.Item({
         .text = {metrics.GetGpuString(), {"GPU: 99.99 ms (100% budget)"}},
-        .color = StateColor::Secondary()
+        .color = StateColor::Secondary(),
+        .priority = -4
     });
     sb.Separator();
     sb.Item({
         .text = {metrics.GetRamString(), {"RAM: 9999.9 MB"}},
-        .color = StateColor::Secondary()
+        .color = StateColor::Secondary(),
+        .priority = -5
     });
 }
 

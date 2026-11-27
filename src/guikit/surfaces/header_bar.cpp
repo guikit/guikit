@@ -13,18 +13,14 @@ namespace guikit {
 
 namespace {
 
-enum class WinCtrlKind : keel::u8 {
-    Minimize = 0,
-    Maximize,
-    Close
-};
-
 struct HeaderBarRenderPayload {
     UiText centeredTitle{};
     UiText centeredSubtitle{};
     Icon centeredIcon{};
     bool centerTitle{false};
     bool focused{true};
+    bool explicitBg{false};
+    Color bgColor{};
     bool drawBottomBorder{true};
     Color borderColor{};
     keel::f32 borderWidth{1.0f};
@@ -40,27 +36,34 @@ struct HeaderTitleBlockPayload {
 };
 
 struct WinCtrlButtonPayload {
-    WinCtrlKind kind{WinCtrlKind::Minimize};
+    WindowControlKind kind{WindowControlKind::Minimize};
     bool maximized{false};
     bool focused{true};
     bool macStyle{false};
     bool hovered{false};
     bool pressed{false};
     bool disabled{false};
+    keel::f32 width{38.0f};
+    keel::f32 height{28.0f};
 };
 
-[[nodiscard]] keel::f32 ResolveHeaderBarHeight(const UiTheme& theme, UiSize size) noexcept {
+[[nodiscard]] keel::f32 ResolveHeaderBarHeight(const UiTheme& theme, UiSize size, bool focused) noexcept {
+    const HeaderBarChromeMetrics cm = theme.Painter().GetHeaderBarMetrics(theme, focused);
+    keel::f32 baseH = 38.0f;
     switch (size.GetPreset()) {
-        case UiSize::Preset::Xs: return 30.0f;
-        case UiSize::Preset::Sm: return 34.0f;
-        case UiSize::Preset::Lg: return 44.0f;
-        case UiSize::Preset::Xl: return 48.0f;
+        case UiSize::Preset::Xs: baseH = 30.0f; break;
+        case UiSize::Preset::Sm: baseH = 34.0f; break;
+        case UiSize::Preset::Lg: baseH = 44.0f; break;
+        case UiSize::Preset::Xl: baseH = 48.0f; break;
         case UiSize::Preset::Md:
         case UiSize::Preset::None:
-            return 38.0f;
+            baseH = 38.0f;
+            break;
         default:
-            return keel::round(38.0f * theme.SizeFactor(size));
+            baseH = keel::round(38.0f * theme.SizeFactor(size));
+            break;
     }
+    return keel::max(24.0f, baseH + cm.defaultHeightDelta);
 }
 
 [[nodiscard]] WindowControlsPlacement ResolveControlsPlacement(
@@ -81,82 +84,85 @@ struct WinCtrlButtonPayload {
 #endif
 }
 
-void DrawMinimizeGlyph(ICanvas& canvas, Rect r, Color col) noexcept {
-    const keel::f32 y = keel::round(r.Center().y) + 0.5f;
-    canvas.DrawLine(Vec2(r.x, y), Vec2(r.Right(), y), col, 1.25f);
-}
-
-void DrawMaximizeGlyph(ICanvas& canvas, Rect r, Color col) noexcept {
-    const Rect sq(keel::round(r.x) + 0.5f, keel::round(r.y) + 0.5f, keel::max(4.0f, keel::round(r.w) - 1.0f), keel::max(4.0f, keel::round(r.h) - 1.0f));
-    canvas.DrawRoundRect(sq, 1.0f, Color::Transparent(), col, 1.25f);
-}
-
-void DrawRestoreGlyph(ICanvas& canvas, Rect r, Color col) noexcept {
-    const keel::f32 sz = keel::max(4.0f, keel::round(r.w * 0.78f));
-    const Rect front(keel::round(r.x) + 0.5f, keel::round(r.Bottom() - sz) + 0.5f, sz - 1.0f, sz - 1.0f);
-    canvas.DrawRoundRect(front, 1.0f, Color::Transparent(), col, 1.2f);
-    const keel::f32 bx1 = keel::round(r.Right() - sz) + 0.5f;
-    const keel::f32 by1 = keel::round(r.y) + 0.5f;
-    const keel::f32 bx2 = keel::round(r.Right()) - 0.5f;
-    const keel::f32 by2 = by1 + sz - 1.0f;
-    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx2, by1), col, 1.2f);
-    canvas.DrawLine(Vec2(bx2, by1), Vec2(bx2, by2), col, 1.2f);
-    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx1, front.y), col, 1.2f);
-    canvas.DrawLine(Vec2(front.Right(), by2), Vec2(bx2, by2), col, 1.2f);
-}
-
-void DrawCloseGlyph(ICanvas& canvas, Rect r, Color col) noexcept {
-    const keel::f32 x0 = keel::round(r.x) + 0.5f;
-    const keel::f32 y0 = keel::round(r.y) + 0.5f;
-    const keel::f32 x1 = keel::round(r.Right()) - 0.5f;
-    const keel::f32 y1 = keel::round(r.Bottom()) - 0.5f;
-    canvas.DrawLine(Vec2(x0, y0), Vec2(x1, y1), col, 1.3f);
-    canvas.DrawLine(Vec2(x1, y0), Vec2(x0, y1), col, 1.3f);
-}
-
 void RenderHeaderBarBackground(const Node* node, ICanvas& canvas, const UiTheme& theme) noexcept {
     const auto* payload = node ? node->As<HeaderBarRenderPayload>() : nullptr;
     if (!payload) return;
     const Rect& r = node->computedRect;
     if (r.w <= 0.5f || r.h <= 0.5f) return;
 
-    if (payload->drawBottomBorder && payload->borderWidth > 0.0f && payload->borderColor.a > 0u) {
-        const keel::f32 y = r.Bottom() - payload->borderWidth * 0.5f;
-        theme.Painter().DrawDivider(canvas, theme, Vec2(r.x, y), Vec2(r.Right(), y), payload->borderColor, payload->borderWidth);
-    }
+    theme.Painter().DrawHeaderBar(canvas, theme, HeaderBarPaintParams{
+        .rect = r,
+        .bg = payload->bgColor,
+        .explicitBg = payload->explicitBg,
+        .borderColor = payload->borderColor,
+        .borderWidth = payload->borderWidth,
+        .drawBottomBorder = payload->drawBottomBorder,
+        .focused = payload->focused
+    });
 
     if (payload->centerTitle && (!payload->centeredTitle.empty() || !payload->centeredSubtitle.empty())) {
-        const auto& pal = theme.palette;
-        const Color titleCol = payload->focused ? pal.textPrimary : pal.textSecondary;
-        const Color subCol = payload->focused ? pal.textSecondary : pal.textMuted;
+        const HeaderBarChromeMetrics cm = theme.Painter().GetHeaderBarMetrics(theme, payload->focused);
+        const Color titleCol = cm.titleColor;
+        const Color subCol = cm.subtitleColor;
         const keel::f32 titleFont = theme.ResolveFontSize(payload->centeredTitle, TextRole::LabelLarge, payload->size);
         const keel::f32 subFont = theme.ResolveFontSize(payload->centeredSubtitle, TextRole::LabelSmall, payload->size);
 
-        const keel::f32 icSz = payload->centeredIcon.IsValid() ? keel::min(16.0f, r.h * 0.45f) : 0.0f;
+        const keel::f32 icSz = payload->centeredIcon.IsValid() ? keel::min(16.0f, r.h * 0.50f) : 0.0f;
         const keel::f32 titleW = payload->centeredTitle.empty() ? 0.0f : canvas.MeasureText(payload->centeredTitle.text, titleFont).x;
         const keel::f32 subW = payload->centeredSubtitle.empty() ? 0.0f : canvas.MeasureText(payload->centeredSubtitle.text, subFont).x;
         const keel::f32 gap1 = (icSz > 0.0f && titleW > 0.0f) ? 6.0f : 0.0f;
         const keel::f32 gap2 = (titleW > 0.0f && subW > 0.0f) ? 8.0f : 0.0f;
-        const keel::f32 totalW = icSz + gap1 + titleW + gap2 + subW;
 
-        const keel::f32 maxCenterW = keel::max(0.0f, r.w - 160.0f);
+        const keel::f32 controlsReserve =
+            cm.controlBtnWidth * 3.0f + cm.controlGap * 2.0f + cm.closeExtraGap + cm.rightEdgePadding + 12.0f;
+        const keel::f32 maxCenterW = keel::max(0.0f, r.w - controlsReserve * 2.0f);
         if (maxCenterW > 24.0f) {
-            const keel::f32 drawW = keel::min(totalW, maxCenterW);
+            const keel::f32 titleBudget = keel::max(0.0f, maxCenterW - icSz - gap1);
+            keel::FixedString<256> titleBuf;
+            keel::StringRef drawTitle = payload->centeredTitle.text;
+            keel::f32 effTitleW = titleW;
+            bool titleTruncated = false;
+            if (!drawTitle.empty() && titleW > titleBudget + 0.5f) {
+                titleBuf = TextUtil::TruncateWithEllipsis(drawTitle, titleBudget, titleFont, &canvas);
+                drawTitle = keel::StringRef(titleBuf);
+                effTitleW = drawTitle.empty() ? 0.0f : canvas.MeasureText(drawTitle, titleFont).x;
+                titleTruncated = true;
+            }
+
+            keel::FixedString<256> subBuf;
+            keel::StringRef drawSub{};
+            keel::f32 effSubW = 0.0f;
+            if (!titleTruncated && !payload->centeredSubtitle.empty()) {
+                const keel::f32 subBudget = keel::max(0.0f, titleBudget - effTitleW - gap2);
+                if (subBudget >= 24.0f) {
+                    drawSub = payload->centeredSubtitle.text;
+                    effSubW = subW;
+                    if (subW > subBudget + 0.5f) {
+                        subBuf = TextUtil::TruncateWithEllipsis(drawSub, subBudget, subFont, &canvas);
+                        drawSub = keel::StringRef(subBuf);
+                        effSubW = drawSub.empty() ? 0.0f : canvas.MeasureText(drawSub, subFont).x;
+                    }
+                }
+            }
+
+            const keel::f32 effGap1 = (icSz > 0.0f && effTitleW > 0.0f) ? 6.0f : 0.0f;
+            const keel::f32 effGap2 = (effTitleW > 0.0f && effSubW > 0.0f) ? 8.0f : 0.0f;
+            const keel::f32 drawW = keel::min(icSz + effGap1 + effTitleW + effGap2 + effSubW, maxCenterW);
             keel::f32 cx = keel::round(r.Center().x - drawW * 0.5f);
             const Rect clipR(keel::round(r.Center().x - maxCenterW * 0.5f), r.y, maxCenterW, r.h);
             canvas.PushClip(clipR);
             if (icSz > 0.0f) {
                 payload->centeredIcon.Draw(canvas, Rect(cx, r.Center().y - icSz * 0.5f, icSz, icSz), titleCol);
-                cx += icSz + gap1;
+                cx += icSz + effGap1;
             }
-            if (!payload->centeredTitle.empty()) {
+            if (!drawTitle.empty()) {
                 const keel::f32 avail = keel::max(0.0f, clipR.Right() - cx);
-                canvas.DrawTextBox(payload->centeredTitle.text, Rect(cx, r.y, avail, r.h), titleFont, titleCol, 0.0f, 0.5f);
-                cx += titleW + gap2;
+                canvas.DrawTextBox(drawTitle, Rect(cx, r.y, avail, r.h), titleFont, titleCol, 0.0f, 0.5f);
+                cx += effTitleW + effGap2;
             }
-            if (!payload->centeredSubtitle.empty() && cx < clipR.Right() - 12.0f) {
+            if (!drawSub.empty() && cx < clipR.Right() - 4.0f) {
                 const keel::f32 avail = keel::max(0.0f, clipR.Right() - cx);
-                canvas.DrawTextBox(payload->centeredSubtitle.text, Rect(cx, r.y, avail, r.h), subFont, subCol, 0.0f, 0.5f);
+                canvas.DrawTextBox(drawSub, Rect(cx, r.y, avail, r.h), subFont, subCol, 0.0f, 0.5f);
             }
             canvas.PopClip();
         }
@@ -183,7 +189,7 @@ Vec2 MeasureHeaderTitleBlock(
     if (titleW > 0.0f) w += (icSz > 0.0f ? 6.0f : 0.0f) + titleW;
     if (subW > 0.0f) w += ((icSz > 0.0f || titleW > 0.0f) ? 8.0f : 0.0f) + subW;
     w += 4.0f;
-    const keel::f32 h = keel::max(20.0f, titleFont + 8.0f);
+    const keel::f32 h = keel::max(18.0f, titleFont + 6.0f);
     return {keel::ceil(w), h};
 }
 
@@ -193,28 +199,47 @@ void RenderHeaderTitleBlock(const Node* node, ICanvas& canvas, const UiTheme& th
     const Rect& r = node->computedRect;
     if (r.w <= 1.0f || r.h <= 1.0f) return;
 
-    const auto& pal = theme.palette;
-    const Color titleCol = payload->focused ? pal.textPrimary : pal.textSecondary;
-    const Color subCol = payload->focused ? pal.textSecondary : pal.textMuted;
+    const HeaderBarChromeMetrics cm = theme.Painter().GetHeaderBarMetrics(theme, payload->focused);
+    const Color titleCol = cm.titleColor;
+    const Color subCol = cm.subtitleColor;
     const keel::f32 titleFont = theme.ResolveFontSize(payload->title, TextRole::LabelLarge, payload->size);
     const keel::f32 subFont = theme.ResolveFontSize(payload->subtitle, TextRole::LabelSmall, payload->size);
 
+    canvas.PushClip(r);
     keel::f32 cx = r.x + 4.0f;
     if (payload->icon.IsValid()) {
         const keel::f32 icSz = keel::min(16.0f, r.h * 0.72f);
         payload->icon.Draw(canvas, Rect(cx, r.Center().y - icSz * 0.5f, icSz, icSz), titleCol);
         cx += icSz + 6.0f;
     }
-    if (!payload->title.empty()) {
+    bool titleTruncated = false;
+    if (!payload->title.empty() && cx < r.Right() - 4.0f) {
         const keel::f32 tw = canvas.MeasureText(payload->title.text, titleFont).x;
         const keel::f32 avail = keel::max(0.0f, r.Right() - cx - 4.0f);
-        canvas.DrawTextBox(payload->title.text, Rect(cx, r.y, avail, r.h), titleFont, titleCol, 0.0f, 0.5f);
-        cx += tw + 8.0f;
+        if (tw > avail + 0.5f) {
+            const auto trunc = TextUtil::TruncateWithEllipsis(payload->title.text, avail, titleFont, &canvas);
+            if (!trunc.empty()) {
+                canvas.DrawTextBox(keel::StringRef(trunc), Rect(cx, r.y, avail, r.h), titleFont, titleCol, 0.0f, 0.5f);
+            }
+            titleTruncated = true;
+        } else {
+            canvas.DrawTextBox(payload->title.text, Rect(cx, r.y, avail, r.h), titleFont, titleCol, 0.0f, 0.5f);
+            cx += tw + 8.0f;
+        }
     }
-    if (!payload->subtitle.empty() && cx < r.Right() - 10.0f) {
+    if (!titleTruncated && !payload->subtitle.empty() && cx < r.Right() - 24.0f) {
+        const keel::f32 sw = canvas.MeasureText(payload->subtitle.text, subFont).x;
         const keel::f32 avail = keel::max(0.0f, r.Right() - cx - 4.0f);
-        canvas.DrawTextBox(payload->subtitle.text, Rect(cx, r.y, avail, r.h), subFont, subCol, 0.0f, 0.5f);
+        if (sw > avail + 0.5f) {
+            const auto trunc = TextUtil::TruncateWithEllipsis(payload->subtitle.text, avail, subFont, &canvas);
+            if (!trunc.empty()) {
+                canvas.DrawTextBox(keel::StringRef(trunc), Rect(cx, r.y, avail, r.h), subFont, subCol, 0.0f, 0.5f);
+            }
+        } else {
+            canvas.DrawTextBox(payload->subtitle.text, Rect(cx, r.y, avail, r.h), subFont, subCol, 0.0f, 0.5f);
+        }
     }
+    canvas.PopClip();
 }
 
 Vec2 MeasureWinCtrlButton(
@@ -224,8 +249,8 @@ Vec2 MeasureWinCtrlButton(
     const UiTheme& /*theme*/
 ) noexcept {
     const auto* p = node ? node->As<WinCtrlButtonPayload>() : nullptr;
-    if (p && p->macStyle) {
-        return {20.0f, 20.0f};
+    if (p) {
+        return {p->width, p->height};
     }
     return {38.0f, 28.0f};
 }
@@ -233,90 +258,16 @@ Vec2 MeasureWinCtrlButton(
 void RenderWinCtrlButton(const Node* node, ICanvas& canvas, const UiTheme& theme) noexcept {
     const auto* p = node ? node->As<WinCtrlButtonPayload>() : nullptr;
     if (!p) return;
-    const Rect& r = node->computedRect;
-    if (r.w <= 1.0f || r.h <= 1.0f) return;
-
-    const auto& pal = theme.palette;
-
-    if (p->macStyle) {
-        const keel::f32 d = keel::min(12.0f, keel::min(r.w, r.h) - 4.0f);
-        const Rect dot(r.Center().x - d * 0.5f, r.Center().y - d * 0.5f, d, d);
-        UiVariant var = UiVariant::Danger;
-        if (p->kind == WinCtrlKind::Minimize) var = UiVariant::Warning;
-        else if (p->kind == WinCtrlKind::Maximize) var = UiVariant::Success;
-
-        const Color semantic = theme.GetSemanticAccent(var);
-        const Color fill = p->disabled
-            ? pal.surfaceHover
-            : (p->focused || p->hovered || p->pressed
-                ? (p->pressed ? semantic.WithAlphaF(0.80f) : semantic)
-                : pal.border);
-        canvas.DrawRoundRect(dot, d * 0.5f, fill, pal.borderSubtle.WithAlphaF(0.5f), 0.75f);
-
-        if ((p->hovered || p->pressed) && !p->disabled) {
-            const keel::f32 g = d * 0.48f;
-            const Rect gr(dot.Center().x - g * 0.5f, dot.Center().y - g * 0.5f, g, g);
-            const Color ink = theme.EnsureReadableInk(pal.background, fill);
-            if (p->kind == WinCtrlKind::Minimize) DrawMinimizeGlyph(canvas, gr, ink);
-            else if (p->kind == WinCtrlKind::Maximize) DrawMaximizeGlyph(canvas, gr, ink);
-            else DrawCloseGlyph(canvas, gr, ink);
-        }
-        return;
-    }
-
-    // Standard Windows / Linux caption button (rendered strictly through IStylePainter)
-    Color bg = Color::Transparent();
-    Color fg = p->disabled
-        ? pal.textDisabled
-        : (p->focused ? pal.textSecondary : pal.textMuted);
-
-    if (!p->disabled) {
-        if (p->kind == WinCtrlKind::Close) {
-            if (p->hovered || p->pressed) {
-                const Color dangerBg = theme.GetSemanticAccent(UiVariant::Danger);
-                bg = p->pressed ? dangerBg.WithAlphaF(0.85f) : dangerBg;
-                fg = theme.EnsureReadableInk(pal.accentText, dangerBg);
-            }
-        } else {
-            if (p->pressed) {
-                bg = pal.surfaceActive;
-                fg = pal.textPrimary;
-            } else if (p->hovered) {
-                bg = pal.surfaceHover;
-                fg = pal.textPrimary;
-            }
-        }
-    }
-
-    if (bg.a > 0u || (!p->disabled && (p->hovered || p->pressed))) {
-        theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
-            .rect = r,
-            .radius = keel::min(4.0f, theme.GetRadius(UiSize::Sm)),
-            .bg = bg,
-            .hovered = p->hovered,
-            .pressed = p->pressed,
-            .disabled = p->disabled,
-            .accent = (p->kind == WinCtrlKind::Close) ? theme.GetSemanticAccent(UiVariant::Danger) : pal.accent
-        });
-    }
-
-    const keel::f32 glyphSz = 10.0f;
-    const Rect gr(r.Center().x - glyphSz * 0.5f, r.Center().y - glyphSz * 0.5f, glyphSz, glyphSz);
-    switch (p->kind) {
-        case WinCtrlKind::Minimize:
-            DrawMinimizeGlyph(canvas, gr, fg);
-            break;
-        case WinCtrlKind::Maximize:
-            if (p->maximized) {
-                DrawRestoreGlyph(canvas, gr, fg);
-            } else {
-                DrawMaximizeGlyph(canvas, gr, fg);
-            }
-            break;
-        case WinCtrlKind::Close:
-            DrawCloseGlyph(canvas, gr, fg);
-            break;
-    }
+    theme.Painter().DrawWindowControlButton(canvas, theme, WindowControlPaintParams{
+        .rect = node->computedRect,
+        .kind = p->kind,
+        .maximized = p->maximized,
+        .focused = p->focused,
+        .macStyle = p->macStyle,
+        .hovered = p->hovered,
+        .pressed = p->pressed,
+        .disabled = p->disabled
+    });
 }
 
 struct WinCtrlHit {
@@ -354,7 +305,7 @@ struct WinCtrlHit {
 void EmitWindowControlButton(
     Context& ctx,
     Id btnId,
-    WinCtrlKind kind,
+    WindowControlKind kind,
     WindowHitRegion hitRegion,
     bool bindToWindow,
     bool maximized,
@@ -363,7 +314,8 @@ void EmitWindowControlButton(
     bool disabled,
     bool hovered,
     bool pressed,
-    keel::f32 barHeight
+    keel::f32 btnW,
+    keel::f32 btnH
 ) {
     if (hovered && !disabled) {
         ctx.SetCursor(CursorType::Pointer);
@@ -372,8 +324,8 @@ void EmitWindowControlButton(
     Node* btn = ctx.CreateNode(NodeType::Button, btnId, disabled);
     btn->widthMode = SizeMode::Fixed;
     btn->heightMode = SizeMode::Fixed;
-    btn->fixedWidth = macStyle ? 20.0f : 38.0f;
-    btn->fixedHeight = macStyle ? 20.0f : keel::max(24.0f, barHeight - 6.0f);
+    btn->fixedWidth = btnW;
+    btn->fixedHeight = btnH;
     btn->hovered = hovered;
     btn->pressed = pressed;
 
@@ -384,7 +336,9 @@ void EmitWindowControlButton(
         .macStyle = macStyle,
         .hovered = hovered,
         .pressed = pressed,
-        .disabled = disabled
+        .disabled = disabled,
+        .width = btnW,
+        .height = btnH
     });
     btn->SetPayload(payload);
     btn->measureFn = &MeasureWinCtrlButton;
@@ -396,7 +350,9 @@ void EmitWindowControlButton(
         macStyle,
         hovered,
         pressed,
-        disabled
+        disabled,
+        btnW,
+        btnH
     );
 
     if (bindToWindow) {
@@ -424,18 +380,47 @@ void EmitControlsGroup(
     if (placement == WindowControlsPlacement::None) {
         return;
     }
+    const UiTheme& theme = ctx.GetTheme();
+    const HeaderBarChromeMetrics cm = theme.Painter().GetHeaderBarMetrics(theme, focused);
     const bool macStyle = (placement == WindowControlsPlacement::Left);
+    const keel::f32 btnW = macStyle ? 20.0f : cm.controlBtnWidth;
+    const keel::f32 btnH = macStyle
+        ? 20.0f
+        : ((cm.controlBtnHeight > 0.0f) ? cm.controlBtnHeight : keel::max(24.0f, barHeight - 6.0f));
+
     if (macStyle) {
         // macOS traffic-light order: Close, Minimize, Maximize
-        EmitWindowControlButton(ctx, clsBtnId, WinCtrlKind::Close, WindowHitRegion::CloseButton, opts.bindToWindow, maximized, focused, true, opts.disabled, clsHovered, clsPressed, barHeight);
-        EmitWindowControlButton(ctx, minBtnId, WinCtrlKind::Minimize, WindowHitRegion::MinimizeButton, opts.bindToWindow, maximized, focused, true, opts.disabled, minHovered, minPressed, barHeight);
-        EmitWindowControlButton(ctx, maxBtnId, WinCtrlKind::Maximize, WindowHitRegion::MaximizeButton, opts.bindToWindow, maximized, focused, true, opts.disabled, maxHovered, maxPressed, barHeight);
-    } else {
-        // Windows / Linux order: Minimize, Maximize/Restore, Close
-        EmitWindowControlButton(ctx, minBtnId, WinCtrlKind::Minimize, WindowHitRegion::MinimizeButton, opts.bindToWindow, maximized, focused, false, opts.disabled, minHovered, minPressed, barHeight);
-        EmitWindowControlButton(ctx, maxBtnId, WinCtrlKind::Maximize, WindowHitRegion::MaximizeButton, opts.bindToWindow, maximized, focused, false, opts.disabled, maxHovered, maxPressed, barHeight);
-        EmitWindowControlButton(ctx, clsBtnId, WinCtrlKind::Close, WindowHitRegion::CloseButton, opts.bindToWindow, maximized, focused, false, opts.disabled, clsHovered, clsPressed, barHeight);
+        EmitWindowControlButton(ctx, clsBtnId, WindowControlKind::Close, WindowHitRegion::CloseButton, opts.bindToWindow, maximized, focused, true, opts.disabled, clsHovered, clsPressed, btnW, btnH);
+        EmitWindowControlButton(ctx, minBtnId, WindowControlKind::Minimize, WindowHitRegion::MinimizeButton, opts.bindToWindow, maximized, focused, true, opts.disabled, minHovered, minPressed, btnW, btnH);
+        EmitWindowControlButton(ctx, maxBtnId, WindowControlKind::Maximize, WindowHitRegion::MaximizeButton, opts.bindToWindow, maximized, focused, true, opts.disabled, maxHovered, maxPressed, btnW, btnH);
+        return;
     }
+
+    // Wrap right-edge controls in a Fixed-width Row so window controls never shrink when title overflows
+    const Id grpId(detail::HashArgs(minBtnId.value, keel::u64(0x48425F475250ull)));
+    Node* grp = ctx.CreateNode(NodeType::Row, grpId, opts.disabled);
+    grp->direction = FlexDirection::Row;
+    grp->widthMode = SizeMode::Fixed;
+    grp->fixedWidth = btnW * 3.0f + cm.controlGap * 2.0f + cm.closeExtraGap;
+    grp->heightMode = SizeMode::Fixed;
+    grp->fixedHeight = btnH;
+    grp->align = Alignment::Center;
+    grp->gap = cm.controlGap;
+    ctx.FinishContainer(grp);
+    ContainerScope grpScope(&ctx, grp);
+
+    EmitWindowControlButton(ctx, minBtnId, WindowControlKind::Minimize, WindowHitRegion::MinimizeButton, opts.bindToWindow, maximized, focused, false, opts.disabled, minHovered, minPressed, btnW, btnH);
+    EmitWindowControlButton(ctx, maxBtnId, WindowControlKind::Maximize, WindowHitRegion::MaximizeButton, opts.bindToWindow, maximized, focused, false, opts.disabled, maxHovered, maxPressed, btnW, btnH);
+    if (cm.closeExtraGap > 0.0f) {
+        const Id gapId(detail::HashArgs(clsBtnId.value, keel::u64(0x48425F474150ull)));
+        Node* gapNode = ctx.CreateNode(NodeType::Spacer, gapId);
+        gapNode->widthMode = SizeMode::Fixed;
+        gapNode->heightMode = SizeMode::Fixed;
+        gapNode->fixedWidth = cm.closeExtraGap;
+        gapNode->fixedHeight = 1.0f;
+        gapNode->isSpacer = true;
+    }
+    EmitWindowControlButton(ctx, clsBtnId, WindowControlKind::Close, WindowHitRegion::CloseButton, opts.bindToWindow, maximized, focused, false, opts.disabled, clsHovered, clsPressed, btnW, btnH);
 }
 
 } // namespace
@@ -518,7 +503,7 @@ void detail::HeaderBar::EmitTrailingControls(
     bool clsPressed
 ) {
     const UiTheme& theme = ctx.GetTheme();
-    const keel::f32 barH = opts.height.value_or(ResolveHeaderBarHeight(theme, opts.size));
+    const keel::f32 barH = opts.height.value_or(ResolveHeaderBarHeight(theme, opts.size, focused));
     EmitControlsGroup(
         ctx, opts, placement, maximized, focused,
         minBtnId, maxBtnId, clsBtnId,
@@ -550,6 +535,7 @@ HeaderBarScope detail::HeaderBar::Open(
         ? *opts.focusedOverride
         : ((opts.bindToWindow && host.isFocused) ? host.isFocused() : true);
     const WindowControlsPlacement placement = ResolveControlsPlacement(opts);
+    const HeaderBarChromeMetrics cm = theme.Painter().GetHeaderBarMetrics(theme, focused);
 
     // Evaluate each window control button ONCE per frame (avoids double-click consumption)
     WinCtrlHit minHit{};
@@ -590,7 +576,6 @@ HeaderBarScope detail::HeaderBar::Open(
                     }
                     ctx.ConsumeMouseClick();
                 } else if (opts.allowDrag && ctx.IsMouseClicked() && host.startSystemMove) {
-                    // Only invoke StartSystemMove when click actually reached client area (X11/fallback)
                     host.startSystemMove();
                     ctx.ConsumeMouseClick();
                 }
@@ -598,9 +583,14 @@ HeaderBarScope detail::HeaderBar::Open(
         }
     }
 
-    const keel::f32 barH = opts.height.value_or(ResolveHeaderBarHeight(theme, opts.size));
+    const keel::f32 barH = opts.height.value_or(ResolveHeaderBarHeight(theme, opts.size, focused));
     const keel::f32 gap = opts.gap.value_or(6.0f);
-    const Padding pad = opts.padding.value_or(Padding(8.0f, 0.0f, (placement == WindowControlsPlacement::Right ? 4.0f : 8.0f), 0.0f));
+    const Padding pad = opts.padding.value_or(Padding(
+        8.0f,
+        0.0f,
+        (placement == WindowControlsPlacement::Right ? cm.rightEdgePadding : 8.0f),
+        0.0f
+    ));
 
     node->direction = FlexDirection::Row;
     node->widthMode = SizeMode::Stretch;
@@ -611,8 +601,13 @@ HeaderBarScope detail::HeaderBar::Open(
     node->padding = pad;
     node->clipChildren = true;
     node->uiSize = opts.size;
-    node->SetSurfaceRole(SurfaceRole::Flat);
+    node->active = focused;
+    node->SetSurfaceRole(SurfaceRole::None);
+    node->backgroundColor = Color::Transparent();
+    node->borderColor = Color::Transparent();
+    node->borderWidth = 0.0f;
 
+    const bool explicitBg = opts.background.HasAny();
     const Color defaultBg = focused ? theme.palette.surfaceElevated : theme.palette.surface;
     const Color resolvedBg = opts.background.IsBackgroundEnabled(false)
         ? theme.ResolveColor(opts.background, false, false, activeDisabled, defaultBg)
@@ -620,9 +615,6 @@ HeaderBarScope detail::HeaderBar::Open(
     const Color resolvedBorder = (opts.border.width > 0.0f || opts.border.color.HasAny())
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, theme.palette.borderSubtle)
         : Color::Transparent();
-    node->backgroundColor = resolvedBg;
-    node->borderColor = Color::Transparent();
-    node->borderWidth = 0.0f;
 
     // Resolve displayed title (fall back to host window title when empty and showWindowTitle is enabled)
     UiText resolvedTitle = opts.title;
@@ -642,6 +634,8 @@ HeaderBarScope detail::HeaderBar::Open(
         .centeredIcon = allocIcon,
         .centerTitle = opts.centerTitle,
         .focused = focused,
+        .explicitBg = explicitBg,
+        .bgColor = resolvedBg,
         .drawBottomBorder = (opts.border.width > 0.0f && resolvedBorder.a > 0u),
         .borderColor = resolvedBorder,
         .borderWidth = opts.border.width,
@@ -652,11 +646,14 @@ HeaderBarScope detail::HeaderBar::Open(
     node->visualHash = detail::HashArgs(
         barH,
         resolvedBg.ToUint32(),
+        explicitBg,
         resolvedBorder.ToUint32(),
         opts.border.width,
         opts.centerTitle,
         maximized,
         focused,
+        cm.accentCaption,
+        cm.titleColor.ToUint32(),
         keel::as<keel::u8>(placement),
         allocTitle.text,
         allocSub.text
@@ -696,7 +693,13 @@ HeaderBarScope detail::HeaderBar::Open(
         titleNode->SetPayload(tp);
         titleNode->measureFn = &MeasureHeaderTitleBlock;
         titleNode->renderFn = &RenderHeaderTitleBlock;
-        titleNode->visualHash = detail::HashArgs(allocTitle.text, allocSub.text, focused, allocIcon.IsValid());
+        titleNode->visualHash = detail::HashArgs(
+            allocTitle.text,
+            allocSub.text,
+            focused,
+            cm.titleColor.ToUint32(),
+            allocIcon.IsValid()
+        );
     }
 
     Response res{};

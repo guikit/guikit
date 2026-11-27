@@ -4,19 +4,26 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/solver.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/style/style_painter.hpp"
 #include "guikit/surfaces/toolbar.hpp"
 #include "keel/math.h"
+#include "keel/small_array.h"
 
 namespace guikit {
 
 namespace {
 
+struct StatusBarPayload {
+    StatusBarOverflow overflow{StatusBarOverflow::Auto};
+};
+
 struct StatusSegmentPayload {
     StatusItemOptions opts{};
     StatusBarStyle barStyle{StatusBarStyle::Surface};
     bool interactive{false};
+    bool compactIconOnly{false};
 };
 
 keel::f32 ResolveStatusBarHeight(const UiTheme& theme, UiSize size, keel::f32 scale) noexcept {
@@ -44,7 +51,7 @@ Color ResolveSegmentTextColor(
         ? p.accentText
         : (hovered ? p.textPrimary : p.textSecondary);
     if (opts.color.HasAny()) {
-        return theme.ResolveColor(opts.color, hovered, opts.active, opts.disabled, fallback);
+        return theme.ResolveTextStateColor(opts.color).Resolve(hovered, opts.active, opts.disabled, fallback);
     }
     if (opts.text.color.HasAny()) {
         return theme.ResolveTextStateColor(opts.text.color).Resolve(hovered, opts.active, opts.disabled, fallback);
@@ -114,6 +121,8 @@ void RenderStatusSegment(
     const auto& p = theme.palette;
     const keel::f32 alphaMul = node->disabled ? 0.45f : 1.0f;
 
+    canvas.PushClip(r);
+
     // 1. Interactive hover / active background frame via active IStylePainter
     if (payload->interactive || o.active) {
         Color bg = Color::Transparent();
@@ -152,7 +161,6 @@ void RenderStatusSegment(
     const keel::f32 fontSize = theme.ResolveFontSize(o.text, TextRole::LabelSmall, node->uiSize);
     const keel::f32 padX = (payload->interactive ? 6.0f : 4.0f) * scale;
     const keel::f32 itemGap = 5.0f * scale;
-    keel::f32 curX = r.x + padX + pressShift;
     const keel::f32 centerY = r.Center().y + pressShift;
 
     Color fg = ResolveSegmentTextColor(o, payload->barStyle, theme, node->hovered || o.active);
@@ -160,6 +168,21 @@ void RenderStatusSegment(
         fg = p.accent;
     }
     fg = fg.WithAlphaF(alphaMul);
+
+    if (payload->compactIconOnly && o.icon.IsValid()) {
+        const keel::f32 iconSz = 12.0f * scale;
+        const Rect iconRect(
+            keel::round(r.Center().x - iconSz * 0.5f + pressShift),
+            keel::round(centerY - iconSz * 0.5f),
+            iconSz,
+            iconSz
+        );
+        o.icon.Draw(canvas, iconRect, fg);
+        canvas.PopClip();
+        return;
+    }
+
+    keel::f32 curX = r.x + padX + pressShift;
 
     // 2. Optional status LED dot
     if (o.dotColor.a > 0) {
@@ -177,13 +200,22 @@ void RenderStatusSegment(
         curX += iconSz + itemGap;
     }
 
-    // 4. Text label
+    // 4. Text label (ellipsized cleanly when constrained to narrow bounds)
     if (!o.text.empty()) {
         const Vec2 textSz = canvas.MeasureText(o.text.text, fontSize);
-        const keel::f32 reservedW = keel::max(textSz.x, TextUtil::MeasureWidth(o.text, fontSize, &canvas));
+        const keel::f32 availTextW = keel::max(0.0f, r.Right() - padX - curX);
         const keel::f32 textY = keel::round(centerY - textSz.y * 0.5f - 1.5f * scale);
-        canvas.DrawText(o.text.text, {curX, textY}, fontSize, fg);
-        curX += reservedW + itemGap;
+        if (textSz.x > availTextW + 0.5f) {
+            const auto trunc = TextUtil::TruncateWithEllipsis(o.text.text, availTextW, fontSize, &canvas);
+            if (!trunc.empty()) {
+                canvas.DrawText(keel::StringRef(trunc), {curX, textY}, fontSize, fg);
+            }
+            curX += availTextW + itemGap;
+        } else {
+            const keel::f32 reservedW = keel::max(textSz.x, TextUtil::MeasureWidth(o.text, fontSize, &canvas));
+            canvas.DrawText(o.text.text, {curX, textY}, fontSize, fg);
+            curX += reservedW + itemGap;
+        }
     }
 
     // 5. Optional trailing badge pill
@@ -204,6 +236,8 @@ void RenderStatusSegment(
         theme.Painter().DrawBadge(canvas, theme, pillRect, pillBg, Color::Transparent(), 0.0f, pillH * 0.5f);
         canvas.DrawTextBox(o.badge.text, pillRect, badgeFont, pillFg, 0.5f, 0.5f);
     }
+
+    canvas.PopClip();
 }
 
 } // namespace
@@ -271,6 +305,7 @@ StatusBarScope detail::StatusBar::Open(
 
     node->direction = FlexDirection::Row;
     node->align = Alignment::Center;
+    node->clipChildren = true;
     node->gap = opts.gap.has_value()
         ? theme.ResolveGap(opts.gap, activeSize, density)
         : (6.0f * density);
@@ -318,10 +353,17 @@ StatusBarScope detail::StatusBar::Open(
         ? *opts.border.radius
         : theme.shell.panelRadius;
 
+    auto* barPayload = ctx.AllocPayload<StatusBarPayload>(StatusBarPayload{
+        .overflow = opts.overflow
+    });
+    node->SetPayload(barPayload);
+    node->arrangeFn = &detail::StatusBar::Arrange;
+
     node->uiSize = activeSize;
     node->visualHash = detail::HashArgs(
         keel::as<keel::u8>(theme.shellStyle),
         keel::as<keel::u8>(opts.style),
+        keel::as<keel::u8>(opts.overflow),
         node->fixedHeight,
         opts.background,
         opts.border
@@ -330,6 +372,257 @@ StatusBarScope detail::StatusBar::Open(
     ctx.FinishContainer(node);
 
     return StatusBarScope(&ctx, node, res, opts);
+}
+
+void detail::StatusBar::Arrange(Node* node, const Rect& availableRect, const UiTheme& theme) {
+    if (!node) return;
+    node->computedRect = availableRect;
+
+    const keel::f32 sX = availableRect.x + node->padding.left;
+    const keel::f32 sY = availableRect.y + node->padding.top;
+    const keel::f32 availW = keel::max(0.0f, availableRect.w - node->padding.Horizontal());
+    const keel::f32 availH = keel::max(0.0f, availableRect.h - node->padding.Vertical());
+
+    const auto* barPayload = node->As<StatusBarPayload>();
+    const StatusBarOverflow overflow = barPayload ? barPayload->overflow : StatusBarOverflow::Auto;
+
+    enum class SlotKind : keel::u8 { Content = 0, Separator, ElasticSpacer, FixedGap };
+    struct Slot {
+        Node* node{nullptr};
+        SlotKind kind{SlotKind::Content};
+        keel::f32 width{0.0f};
+        keel::f32 compactWidth{0.0f};
+        keel::i8 priority{0};
+        bool interactive{false};
+        bool compactable{false};
+        bool visible{true};
+    };
+
+    keel::SmallArray<Slot, 16> slots;
+    keel::usize elasticIdx = keel::Limits<keel::usize>::kMax;
+
+    for (Node* ch = node->firstChild; ch != nullptr; ch = ch->nextSibling) {
+        if (ch->IsOutOfFlow()) continue;
+        Slot slot{};
+        slot.node = ch;
+        if (ch->isSpacer && ch->widthMode == SizeMode::Stretch) {
+            slot.kind = SlotKind::ElasticSpacer;
+            if (elasticIdx == keel::Limits<keel::usize>::kMax) {
+                elasticIdx = slots.size();
+            }
+        } else if (ch->isSpacer) {
+            slot.kind = SlotKind::FixedGap;
+            slot.width = (ch->widthMode == SizeMode::Fixed) ? ch->fixedWidth : ch->intrinsicSize.x;
+        } else if (ch->type == NodeType::Separator) {
+            slot.kind = SlotKind::Separator;
+            slot.width = (ch->widthMode == SizeMode::Fixed) ? ch->fixedWidth : keel::max(1.0f, ch->intrinsicSize.x);
+        } else {
+            slot.kind = SlotKind::Content;
+            slot.width = (ch->widthMode == SizeMode::Fixed) ? ch->fixedWidth : ch->intrinsicSize.x;
+            if (auto* seg = ch->As<StatusSegmentPayload>()) {
+                seg->compactIconOnly = false;
+                slot.priority = seg->opts.priority;
+                slot.interactive = seg->interactive;
+                if (seg->interactive && seg->opts.icon.IsValid() &&
+                    !seg->opts.text.empty() && seg->opts.badge.empty() && seg->opts.dotColor.a == 0u) {
+                    const keel::f32 compactW = keel::max(20.0f, ch->intrinsicSize.y + 2.0f);
+                    if (compactW + 4.0f < slot.width) {
+                        slot.compactable = true;
+                        slot.compactWidth = compactW;
+                    }
+                }
+            }
+        }
+        slots.push_back(slot);
+    }
+
+    if (slots.empty()) {
+        return;
+    }
+
+    const keel::f32 gap = node->gap;
+
+    auto computeMinNeeded = [&]() noexcept -> keel::f32 {
+        keel::f32 totalW = 0.0f;
+        keel::u32 visCount = 0u;
+        for (const Slot& s : slots) {
+            if (!s.visible || s.kind == SlotKind::ElasticSpacer) continue;
+            totalW += s.width;
+            ++visCount;
+        }
+        if (visCount > 1u) {
+            totalW += keel::as<keel::f32>(visCount - 1u) * gap;
+        }
+        return totalW;
+    };
+
+    auto cleanupOrphanDecorators = [&]() noexcept {
+        // Group ranges separated by ElasticSpacer (left side & right side)
+        const keel::usize n = slots.size();
+        auto cleanRange = [&](keel::usize start, keel::usize end) noexcept {
+            // Hide leading/trailing separators & fixed gaps, and collapse consecutive separators
+            bool seenContent = false;
+            keel::usize lastContentIdx = keel::Limits<keel::usize>::kMax;
+            for (keel::usize i = start; i < end; ++i) {
+                if (!slots[i].visible) continue;
+                if (slots[i].kind == SlotKind::Content) {
+                    seenContent = true;
+                    lastContentIdx = i;
+                } else if (!seenContent) {
+                    slots[i].visible = false;
+                }
+            }
+            if (!seenContent) {
+                for (keel::usize i = start; i < end; ++i) {
+                    slots[i].visible = false;
+                }
+                return;
+            }
+            for (keel::usize i = lastContentIdx + 1u; i < end; ++i) {
+                if (slots[i].kind != SlotKind::Content) {
+                    slots[i].visible = false;
+                }
+            }
+            bool prevWasSep = false;
+            for (keel::usize i = start; i < end; ++i) {
+                if (!slots[i].visible) continue;
+                if (slots[i].kind == SlotKind::Separator) {
+                    if (prevWasSep) {
+                        slots[i].visible = false;
+                    } else {
+                        prevWasSep = true;
+                    }
+                } else if (slots[i].kind == SlotKind::Content) {
+                    prevWasSep = false;
+                }
+            }
+        };
+
+        keel::usize rangeStart = 0u;
+        for (keel::usize i = 0u; i < n; ++i) {
+            if (slots[i].kind == SlotKind::ElasticSpacer) {
+                cleanRange(rangeStart, i);
+                rangeStart = i + 1u;
+            }
+        }
+        cleanRange(rangeStart, n);
+    };
+
+    if (overflow == StatusBarOverflow::Auto && computeMinNeeded() > availW + 0.5f) {
+        // Stage 1: Compact icon+text Actions to icon-only (preserves full functionality + tooltip)
+        for (Slot& s : slots) {
+            if (s.visible && s.compactable) {
+                if (auto* seg = s.node->As<StatusSegmentPayload>()) {
+                    seg->compactIconOnly = true;
+                    s.width = s.compactWidth;
+                }
+            }
+        }
+
+        // Stage 2: Hide lowest-priority segments + orphan separators until remaining fit cleanly
+        while (computeMinNeeded() > availW + 0.5f) {
+            keel::usize victim = keel::Limits<keel::usize>::kMax;
+            keel::u32 visContentCount = 0u;
+            for (const Slot& s : slots) {
+                if (s.visible && s.kind == SlotKind::Content) {
+                    ++visContentCount;
+                }
+            }
+            if (visContentCount <= 1u) {
+                break;
+            }
+
+            for (keel::usize i = 0u; i < slots.size(); ++i) {
+                const Slot& s = slots[i];
+                if (!s.visible || s.kind != SlotKind::Content) continue;
+                if (victim == keel::Limits<keel::usize>::kMax) {
+                    victim = i;
+                    continue;
+                }
+                const Slot& cur = slots[victim];
+                // 1. Lower explicit priority hides first
+                if (s.priority != cur.priority) {
+                    if (s.priority < cur.priority) victim = i;
+                    continue;
+                }
+                // 2. Passive telemetry hides before interactive Actions
+                if (s.interactive != cur.interactive) {
+                    if (!s.interactive && cur.interactive) victim = i;
+                    continue;
+                }
+                // 3. Tie-breaker: segments closest to the Spacer (middle) hide first
+                const bool sOnLeft = (elasticIdx == keel::Limits<keel::usize>::kMax) || (i < elasticIdx);
+                const bool curOnLeft = (elasticIdx == keel::Limits<keel::usize>::kMax) || (victim < elasticIdx);
+                if (sOnLeft != curOnLeft) {
+                    if (sOnLeft) victim = i; // Prefer hiding left passive items before right-edge items
+                    continue;
+                }
+                if (sOnLeft) {
+                    if (i > victim) victim = i; // Closest to spacer on left (rightmost of left group)
+                } else {
+                    if (i < victim) victim = i; // Closest to spacer on right (leftmost of right group)
+                }
+            }
+
+            if (victim == keel::Limits<keel::usize>::kMax) {
+                break;
+            }
+            slots[victim].visible = false;
+            cleanupOrphanDecorators();
+        }
+    }
+
+    // Compute final elastic distribution across visible items
+    keel::f32 totalFlexGrow = 0.0f;
+    for (const Slot& s : slots) {
+        if (s.visible && s.kind == SlotKind::ElasticSpacer) {
+            totalFlexGrow += keel::max(0.01f, s.node->flexGrow);
+        }
+    }
+    const keel::f32 minNeeded = computeMinNeeded();
+    const keel::f32 freeSpace = keel::max(0.0f, availW - minNeeded);
+
+    // Count visible non-elastic items to place exact gaps without double-gapping around elastic spacers
+    keel::f32 curX = sX;
+    bool placedAny = false;
+    for (keel::usize i = 0u; i < slots.size(); ++i) {
+        const Slot& s = slots[i];
+        Node* ch = s.node;
+        if (!s.visible) {
+            ch->computedRect = Rect(curX, sY, 0.0f, 0.0f);
+            Solver::Arrange(ch, ch->computedRect, theme);
+            continue;
+        }
+        if (s.kind == SlotKind::ElasticSpacer) {
+            const keel::f32 spW = (totalFlexGrow > 0.0f)
+                ? (freeSpace * (keel::max(0.01f, ch->flexGrow) / totalFlexGrow))
+                : 0.0f;
+            ch->computedRect = Rect(curX, sY, spW, availH);
+            curX += spW;
+            continue;
+        }
+
+        if (placedAny) {
+            curX += gap;
+        }
+        keel::f32 childW = s.width;
+        if (overflow == StatusBarOverflow::Auto && childW > availW) {
+            childW = availW;
+        }
+        const keel::f32 childH = (ch->heightMode == SizeMode::Fixed)
+            ? ch->fixedHeight
+            : ((ch->heightMode == SizeMode::Stretch || ch->type == NodeType::Separator) ? availH : ch->intrinsicSize.y);
+        keel::f32 childY = sY;
+        if (node->align == Alignment::Center) {
+            childY += (availH - childH) * 0.5f;
+        } else if (node->align == Alignment::End) {
+            childY += (availH - childH);
+        }
+        ch->computedRect = Rect(curX, childY, childW, childH);
+        Solver::Arrange(ch, ch->computedRect, theme);
+        curX += childW;
+        placedAny = true;
+    }
 }
 
 Response detail::StatusBar::RenderSegment(
@@ -365,8 +658,15 @@ Response detail::StatusBar::RenderSegment(
         res.pressed = false;
     }
 
-    if (res.hovered && !opts.tooltip.empty()) {
-        ctx.SetTooltip(opts.tooltip, res.rect);
+    if (res.hovered) {
+        const bool wasCompacted = interactive && opts.icon.IsValid() && !opts.text.empty() &&
+                                  res.rect.w > 0.0f && res.rect.w <= res.rect.h + 8.0f;
+        const UiText effTooltip = !opts.tooltip.empty()
+            ? opts.tooltip
+            : (wasCompacted ? opts.text : UiText{});
+        if (!effTooltip.empty()) {
+            ctx.SetTooltip(effTooltip, res.rect);
+        }
     }
 
     Node* node = ctx.CreateNode(interactive ? NodeType::Button : NodeType::Text, id);
@@ -387,6 +687,7 @@ Response detail::StatusBar::RenderSegment(
     payload->opts.icon = ctx.AllocIcon(opts.icon);
     payload->barStyle = barStyle;
     payload->interactive = interactive;
+    payload->compactIconOnly = false;
     node->SetPayload(payload);
     node->text = payload->opts.text.text;
 

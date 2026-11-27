@@ -22,9 +22,16 @@ enum class StatusBarStyle : keel::u8 {
     Accent      ///< High-contrast primary accent strip (VS Code style)
 };
 
+/// Horizontal overflow policy for a StatusBar when segments exceed available width.
+enum class StatusBarOverflow : keel::u8 {
+    Auto = 0,   ///< Compact icon+text actions to icon-only, then hide lower-priority segments & orphan separators
+    Clip        ///< Keep all segments at intrinsic width and clip cleanly to the bar viewport
+};
+
 /// Options for configuring a StatusBar container.
 struct StatusBarOptions {
     StatusBarStyle style{StatusBarStyle::Surface};
+    StatusBarOverflow overflow{StatusBarOverflow::Auto};       ///< Responsive overflow policy when width is constrained
     keel::Optional<keel::f32> height{keel::kNullOpt};          ///< Explicit height in pixels (nullopt = auto compact height from theme, ~26px in Md)
     keel::Optional<keel::f32> gap{keel::kNullOpt};             ///< Horizontal gap between status items (nullopt = auto compact gap)
     keel::Optional<Padding> padding{keel::kNullOpt};       ///< Internal bar padding (nullopt = auto compact padding)
@@ -43,6 +50,7 @@ struct StatusItemOptions {
     UiText badge{};                                     ///< Optional trailing pill badge text
     UiText tooltip{};                                   ///< Optional hover tooltip
     keel::Optional<keel::f32> minWidth{keel::kNullOpt};        ///< Optional minimum segment width in unscaled points
+    keel::i8 priority{0};                               ///< Responsive visibility priority (<0 = auxiliary/low, 0 = normal, >0 = pinned/high; higher stays visible longer)
     bool active{false};                                 ///< Highlight state for toggleable status actions
     bool disabled{false};
 };
@@ -107,6 +115,8 @@ public:
         bool interactive,
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
+
+    static void Arrange(Node* node, const Rect& availableRect, const UiTheme& theme);
 };
 
 } // namespace detail

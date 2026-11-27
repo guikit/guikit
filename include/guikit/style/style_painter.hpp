@@ -145,6 +145,49 @@ struct TableHeaderCellPaintParams {
     bool isFrozenSeam{false};
 };
 
+/// Semantic kind of a CSD window control button rendered by `IStylePainter::DrawWindowControlButton`.
+enum class WindowControlKind : keel::u8 {
+    Minimize = 0,
+    Maximize,
+    Close
+};
+
+/// Chrome-driven layout & color metrics for `guikit::HeaderBar` returned by `IStylePainter::GetHeaderBarMetrics`.
+struct HeaderBarChromeMetrics {
+    Color     titleColor{};
+    Color     subtitleColor{};
+    keel::f32 defaultHeightDelta{0.0f}; ///< Optional height adjustment in dp (e.g. -6.0f for compact Classic3D title bar)
+    keel::f32 controlBtnWidth{38.0f};
+    keel::f32 controlBtnHeight{0.0f};   ///< <= 0 means barHeight - 6.0f
+    keel::f32 controlGap{6.0f};
+    keel::f32 closeExtraGap{0.0f};      ///< Extra separation before Close button (e.g. Win98 `[ _ ][ □ ]  [ × ]`)
+    keel::f32 rightEdgePadding{4.0f};
+    bool      accentCaption{false};     ///< True when header renders a solid/gradient accent title bar (e.g. Bevel3D)
+};
+
+/// Parameters describing a `HeaderBar` background & bottom border for `IStylePainter::DrawHeaderBar`.
+struct HeaderBarPaintParams {
+    Rect      rect{};
+    Color     bg{Color::Transparent()};
+    bool      explicitBg{false};
+    Color     borderColor{Color::Transparent()};
+    keel::f32 borderWidth{1.0f};
+    bool      drawBottomBorder{true};
+    bool      focused{true};
+};
+
+/// Parameters describing a CSD window control button for `IStylePainter::DrawWindowControlButton`.
+struct WindowControlPaintParams {
+    Rect              rect{};
+    WindowControlKind kind{WindowControlKind::Minimize};
+    bool              maximized{false};
+    bool              focused{true};
+    bool              macStyle{false};
+    bool              hovered{false};
+    bool              pressed{false};
+    bool              disabled{false};
+};
+
 /// Pluggable look-and-feel style painter interface (analogous to Qt QStyle / Flutter ThemeExtension).
 ///
 /// All 8 element classes delegate visual physics (shadows, fills, borders, 3D bevels, directional 1px lighting,
@@ -501,6 +544,26 @@ public:
         const UiTheme& theme,
         const TableHeaderCellPaintParams& p
     ) const = 0;
+
+    /// Returns chrome-driven geometry & foreground ink tokens for `guikit::HeaderBar`.
+    [[nodiscard]] virtual HeaderBarChromeMetrics GetHeaderBarMetrics(
+        const UiTheme& theme,
+        bool focused
+    ) const noexcept = 0;
+
+    /// Draws the `HeaderBar` surface (classic 3D accent gradient bar, glass, luminous, or modern strip) and bottom seam.
+    virtual void DrawHeaderBar(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        const HeaderBarPaintParams& p
+    ) const = 0;
+
+    /// Draws a CSD window control button (`Minimize`, `Maximize/Restore`, `Close`) in the active chrome style.
+    virtual void DrawWindowControlButton(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        const WindowControlPaintParams& p
+    ) const = 0;
 };
 
 /// Built-in default look-and-feel painter supporting all `ChromeStyle`, `ChromeTokens`, and `FillStyle` modes
@@ -535,6 +598,9 @@ public:
     void DrawSplitSash(ICanvas& canvas, const UiTheme& theme, Rect sashRect, bool verticalBar, bool showGrip, bool hovered, bool dragging, bool disabled) const override;
     void DrawPanelToggle(ICanvas& canvas, const UiTheme& theme, const PanelTogglePaintParams& p) const override;
     void DrawTableHeaderCell(ICanvas& canvas, const UiTheme& theme, const TableHeaderCellPaintParams& p) const override;
+    [[nodiscard]] HeaderBarChromeMetrics GetHeaderBarMetrics(const UiTheme& theme, bool focused) const noexcept override;
+    void DrawHeaderBar(ICanvas& canvas, const UiTheme& theme, const HeaderBarPaintParams& p) const override;
+    void DrawWindowControlButton(ICanvas& canvas, const UiTheme& theme, const WindowControlPaintParams& p) const override;
 
     // Reusable low-level 3D bevel helpers exposed to subclasses
     static void DrawBevelFrame(ICanvas& canvas, Rect r, const BevelPalette& c, bool sunken = false, bool thin = false);

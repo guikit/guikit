@@ -1171,7 +1171,7 @@ void TestMainWindowHeadlessBackend() {
         EnginePopoverApp engApp(rawW, keel::move(engWin));
         CHECK(engApp.Run() == 0);
         CHECK(engApp.sawPopover);
-        CHECK(engApp.switchCount == 6); // 5 pipeline switches + Gamma Blending
+        CHECK(engApp.switchCount == 7); // 6 pipeline switches (incl. Custom HeaderBar) + Gamma Blending
         CHECK(!rawW->vsync); // VSync toggled off via Engine popover Switch
     }
 }

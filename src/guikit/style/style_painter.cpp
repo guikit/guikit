@@ -2399,6 +2399,292 @@ void DefaultStylePainter::DrawTableHeaderCell(
     }
 }
 
+namespace {
+
+void DrawWinCtrlMinimizeGlyph(ICanvas& canvas, Rect r, Color col, bool classicBold) noexcept {
+    if (classicBold) {
+        const keel::f32 barW = keel::max(5.0f, keel::round(r.w * 0.72f));
+        const keel::f32 x0 = keel::floor(r.Center().x - barW * 0.5f);
+        const keel::f32 y0 = keel::floor(r.Bottom() - 2.0f);
+        canvas.DrawRect(Rect(x0, y0, barW, 2.0f), col);
+        return;
+    }
+    const keel::f32 y = keel::round(r.Center().y) + 0.5f;
+    canvas.DrawLine(Vec2(r.x, y), Vec2(r.Right(), y), col, 1.25f);
+}
+
+void DrawWinCtrlMaximizeGlyph(ICanvas& canvas, Rect r, Color col, bool classicBold) noexcept {
+    if (classicBold) {
+        const keel::f32 x = keel::floor(r.x);
+        const keel::f32 y = keel::floor(r.y);
+        const keel::f32 w = keel::max(6.0f, keel::round(r.w));
+        const keel::f32 h = keel::max(6.0f, keel::round(r.h));
+        canvas.DrawRect(Rect(x, y, w, 2.0f), col);
+        canvas.DrawRect(Rect(x, y + h - 1.0f, w, 1.0f), col);
+        canvas.DrawRect(Rect(x, y, 1.0f, h), col);
+        canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, h), col);
+        return;
+    }
+    const Rect sq(
+        keel::round(r.x) + 0.5f,
+        keel::round(r.y) + 0.5f,
+        keel::max(4.0f, keel::round(r.w) - 1.0f),
+        keel::max(4.0f, keel::round(r.h) - 1.0f)
+    );
+    canvas.DrawRoundRect(sq, 1.0f, Color::Transparent(), col, 1.25f);
+}
+
+void DrawWinCtrlRestoreGlyph(ICanvas& canvas, Rect r, Color col, bool classicBold) noexcept {
+    const keel::f32 sz = keel::max(4.0f, keel::round(r.w * 0.76f));
+    if (classicBold) {
+        const keel::f32 fx = keel::floor(r.x);
+        const keel::f32 fy = keel::floor(r.Bottom() - sz);
+        canvas.DrawRect(Rect(fx, fy, sz, 2.0f), col);
+        canvas.DrawRect(Rect(fx, fy + sz - 1.0f, sz, 1.0f), col);
+        canvas.DrawRect(Rect(fx, fy, 1.0f, sz), col);
+        canvas.DrawRect(Rect(fx + sz - 1.0f, fy, 1.0f, sz), col);
+
+        const keel::f32 bx = keel::floor(r.Right() - sz);
+        const keel::f32 by = keel::floor(r.y);
+        canvas.DrawRect(Rect(bx, by, sz, 2.0f), col);
+        canvas.DrawRect(Rect(bx + sz - 1.0f, by, 1.0f, sz), col);
+        if (fy > by) {
+            canvas.DrawRect(Rect(bx, by, 1.0f, fy - by), col);
+        }
+        if (bx + sz > fx + sz) {
+            canvas.DrawRect(Rect(fx + sz, by + sz - 1.0f, (bx + sz) - (fx + sz), 1.0f), col);
+        }
+        return;
+    }
+    const Rect front(keel::round(r.x) + 0.5f, keel::round(r.Bottom() - sz) + 0.5f, sz - 1.0f, sz - 1.0f);
+    canvas.DrawRoundRect(front, 1.0f, Color::Transparent(), col, 1.2f);
+    const keel::f32 bx1 = keel::round(r.Right() - sz) + 0.5f;
+    const keel::f32 by1 = keel::round(r.y) + 0.5f;
+    const keel::f32 bx2 = keel::round(r.Right()) - 0.5f;
+    const keel::f32 by2 = by1 + sz - 1.0f;
+    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx2, by1), col, 1.2f);
+    canvas.DrawLine(Vec2(bx2, by1), Vec2(bx2, by2), col, 1.2f);
+    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx1, front.y), col, 1.2f);
+    canvas.DrawLine(Vec2(front.Right(), by2), Vec2(bx2, by2), col, 1.2f);
+}
+
+void DrawWinCtrlCloseGlyph(ICanvas& canvas, Rect r, Color col, bool classicBold) noexcept {
+    const keel::f32 x0 = keel::round(r.x) + 0.5f;
+    const keel::f32 y0 = keel::round(r.y) + 0.5f;
+    const keel::f32 x1 = keel::round(r.Right()) - 0.5f;
+    const keel::f32 y1 = keel::round(r.Bottom()) - 0.5f;
+    const keel::f32 stroke = classicBold ? 1.75f : 1.3f;
+    canvas.DrawLine(Vec2(x0, y0), Vec2(x1, y1), col, stroke);
+    canvas.DrawLine(Vec2(x1, y0), Vec2(x0, y1), col, stroke);
+}
+
+} // namespace
+
+HeaderBarChromeMetrics DefaultStylePainter::GetHeaderBarMetrics(
+    const UiTheme& theme,
+    bool focused
+) const noexcept {
+    const auto& pal = theme.palette;
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        const Color captionBase = focused ? pal.accent : pal.border;
+        const Color preferredInk = focused ? pal.accentText : pal.surfaceHover;
+        const Color titleInk = theme.EnsureReadableInk(preferredInk, captionBase);
+        return HeaderBarChromeMetrics{
+            .titleColor = titleInk,
+            .subtitleColor = titleInk.WithAlphaF(0.82f),
+            .defaultHeightDelta = -6.0f,
+            .controlBtnWidth = 20.0f,
+            .controlBtnHeight = 18.0f,
+            .controlGap = 0.0f,
+            .closeExtraGap = 2.0f,
+            .rightEdgePadding = 5.0f,
+            .accentCaption = true
+        };
+    }
+
+    return HeaderBarChromeMetrics{
+        .titleColor = focused ? pal.textPrimary : pal.textSecondary,
+        .subtitleColor = focused ? pal.textSecondary : pal.textMuted,
+        .defaultHeightDelta = 0.0f,
+        .controlBtnWidth = 38.0f,
+        .controlBtnHeight = 0.0f,
+        .controlGap = 6.0f,
+        .closeExtraGap = 0.0f,
+        .rightEdgePadding = 4.0f,
+        .accentCaption = false
+    };
+}
+
+void DefaultStylePainter::DrawHeaderBar(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    const HeaderBarPaintParams& p
+) const {
+    if (p.rect.w <= 0.5f || p.rect.h <= 0.5f) return;
+    const auto& pal = theme.palette;
+
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        const Rect sr = SnapBevelRect(p.rect);
+        // Classic 3D window title bar: outer 2px 3D face rim + horizontal gradient caption strip inside
+        canvas.DrawRect(sr, pal.surface);
+
+        const keel::f32 inset = (sr.w > 10.0f && sr.h > 8.0f) ? 2.0f : 0.0f;
+        const Rect bar(sr.x + inset, sr.y + inset, keel::max(1.0f, sr.w - inset * 2.0f), keel::max(1.0f, sr.h - inset * 2.0f));
+        if (p.explicitBg && p.bg.a > 0u) {
+            canvas.DrawRect(bar, p.bg);
+        } else {
+            const Color startCol = p.focused ? pal.accent : pal.border;
+            keel::f32 ah = 0.0f;
+            keel::f32 as = 0.0f;
+            keel::f32 al = 0.0f;
+            pal.accent.ToHsl(ah, as, al);
+            const keel::f32 accentDeltaL = (al > 0.55f) ? -0.14f : 0.19f;
+            const Color endCol = p.focused
+                ? pal.accent.ShiftHue(-36.0f, -0.14f, accentDeltaL)
+                : pal.border.ShiftLightness(theme.mode == ThemeMode::Dark ? 0.14f : 0.22f);
+            const Gradient grad = Gradient::LinearPoints(startCol, endCol, Vec2{0.0f, 0.5f}, Vec2{1.0f, 0.5f});
+            canvas.DrawGradientRoundRect(bar, 0.0f, grad, Color::Transparent(), 0.0f);
+        }
+
+        if (p.drawBottomBorder && p.borderWidth > 0.0f && p.borderColor.a > 0u) {
+            DrawBevelDividerH(canvas, sr.x, sr.Right(), sr.Bottom() - 2.0f, theme.bevel);
+        }
+        return;
+    }
+
+    DrawSurfaceBg(canvas, theme, SurfacePaintParams{
+        .rect = p.rect,
+        .role = SurfaceRole::Flat,
+        .bg = p.bg
+    });
+
+    if (p.drawBottomBorder && p.borderWidth > 0.0f && p.borderColor.a > 0u) {
+        const keel::f32 y = p.rect.Bottom() - p.borderWidth * 0.5f;
+        DrawDivider(canvas, theme, Vec2(p.rect.x, y), Vec2(p.rect.Right(), y), p.borderColor, p.borderWidth);
+    }
+}
+
+void DefaultStylePainter::DrawWindowControlButton(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    const WindowControlPaintParams& p
+) const {
+    const Rect& r = p.rect;
+    if (r.w <= 1.0f || r.h <= 1.0f) return;
+    const auto& pal = theme.palette;
+
+    if (p.macStyle) {
+        const keel::f32 d = keel::min(12.0f, keel::min(r.w, r.h) - 4.0f);
+        const Rect dot(r.Center().x - d * 0.5f, r.Center().y - d * 0.5f, d, d);
+        UiVariant var = UiVariant::Danger;
+        if (p.kind == WindowControlKind::Minimize) var = UiVariant::Warning;
+        else if (p.kind == WindowControlKind::Maximize) var = UiVariant::Success;
+
+        const Color semantic = theme.GetSemanticAccent(var);
+        const Color fill = p.disabled
+            ? pal.surfaceHover
+            : (p.focused || p.hovered || p.pressed
+                ? (p.pressed ? semantic.WithAlphaF(0.80f) : semantic)
+                : pal.border);
+        canvas.DrawRoundRect(dot, d * 0.5f, fill, pal.borderSubtle.WithAlphaF(0.5f), 0.75f);
+
+        if ((p.hovered || p.pressed) && !p.disabled) {
+            const keel::f32 g = d * 0.48f;
+            const Rect gr(dot.Center().x - g * 0.5f, dot.Center().y - g * 0.5f, g, g);
+            const Color ink = theme.EnsureReadableInk(pal.background, fill);
+            if (p.kind == WindowControlKind::Minimize) DrawWinCtrlMinimizeGlyph(canvas, gr, ink, false);
+            else if (p.kind == WindowControlKind::Maximize) DrawWinCtrlMaximizeGlyph(canvas, gr, ink, false);
+            else DrawWinCtrlCloseGlyph(canvas, gr, ink, false);
+        }
+        return;
+    }
+
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        const Rect sr = SnapBevelRect(r);
+        const Color face = p.disabled
+            ? pal.surface
+            : (p.pressed ? pal.surfaceActive : (p.hovered ? pal.surfaceHover : pal.surface));
+        canvas.DrawRect(sr, face);
+        DrawBevelFrame(canvas, sr, theme.bevel, /*sunken=*/p.pressed && !p.disabled, /*thin=*/false);
+
+        const Color fg = p.disabled ? pal.textDisabled : pal.textPrimary;
+        const keel::f32 shift = GetButtonContentOffset(theme, p.pressed, false, p.disabled);
+        const keel::f32 gw = keel::min(9.0f, keel::max(6.0f, sr.w - 8.0f));
+        const keel::f32 gh = keel::min(8.0f, keel::max(6.0f, sr.h - 8.0f));
+        const Rect gr(sr.Center().x - gw * 0.5f + shift, sr.Center().y - gh * 0.5f + shift, gw, gh);
+        switch (p.kind) {
+            case WindowControlKind::Minimize:
+                DrawWinCtrlMinimizeGlyph(canvas, gr, fg, true);
+                break;
+            case WindowControlKind::Maximize:
+                if (p.maximized) {
+                    DrawWinCtrlRestoreGlyph(canvas, gr, fg, true);
+                } else {
+                    DrawWinCtrlMaximizeGlyph(canvas, gr, fg, true);
+                }
+                break;
+            case WindowControlKind::Close:
+                DrawWinCtrlCloseGlyph(canvas, gr, fg, true);
+                break;
+        }
+        return;
+    }
+
+    // Modern / Fluent / Luminous / Glass / Brutalist caption buttons
+    Color bg = Color::Transparent();
+    Color fg = p.disabled
+        ? pal.textDisabled
+        : (p.focused ? pal.textSecondary : pal.textMuted);
+
+    if (!p.disabled) {
+        if (p.kind == WindowControlKind::Close) {
+            if (p.hovered || p.pressed) {
+                const Color dangerBg = theme.GetSemanticAccent(UiVariant::Danger);
+                bg = p.pressed ? dangerBg.WithAlphaF(0.85f) : dangerBg;
+                fg = theme.EnsureReadableInk(pal.accentText, dangerBg);
+            }
+        } else {
+            if (p.pressed) {
+                bg = pal.surfaceActive;
+                fg = pal.textPrimary;
+            } else if (p.hovered) {
+                bg = pal.surfaceHover;
+                fg = pal.textPrimary;
+            }
+        }
+    }
+
+    if (bg.a > 0u || (!p.disabled && (p.hovered || p.pressed))) {
+        DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
+            .rect = r,
+            .radius = keel::min(4.0f, theme.GetRadius(UiSize::Sm)),
+            .bg = bg,
+            .hovered = p.hovered,
+            .pressed = p.pressed,
+            .disabled = p.disabled,
+            .accent = (p.kind == WindowControlKind::Close) ? theme.GetSemanticAccent(UiVariant::Danger) : pal.accent
+        });
+    }
+
+    const keel::f32 glyphSz = 10.0f;
+    const Rect gr(r.Center().x - glyphSz * 0.5f, r.Center().y - glyphSz * 0.5f, glyphSz, glyphSz);
+    switch (p.kind) {
+        case WindowControlKind::Minimize:
+            DrawWinCtrlMinimizeGlyph(canvas, gr, fg, false);
+            break;
+        case WindowControlKind::Maximize:
+            if (p.maximized) {
+                DrawWinCtrlRestoreGlyph(canvas, gr, fg, false);
+            } else {
+                DrawWinCtrlMaximizeGlyph(canvas, gr, fg, false);
+            }
+            break;
+        case WindowControlKind::Close:
+            DrawWinCtrlCloseGlyph(canvas, gr, fg, false);
+            break;
+    }
+}
+
 const IStylePainter& GetDefaultStylePainter() noexcept {
     static const DefaultStylePainter kDefaultPainter{};
     return kDefaultPainter;

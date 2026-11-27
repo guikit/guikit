@@ -3,6 +3,7 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/system_dialogs.hpp"
 #include "guikit/backend/system_theme.hpp"
+#include "guikit/style/tokens.hpp"
 #include "keel/array.h"
 #include "keel/function.h"
 #include "keel/smart_ptr.h"
@@ -156,6 +157,8 @@ public:
     [[nodiscard]] virtual bool SupportsCustomTitleBar() const noexcept { return false; }
     [[nodiscard]] virtual bool IsCustomTitleBar() const noexcept { return false; }
     virtual bool SetCustomTitleBar(bool /*enabled*/) noexcept { return false; }
+    virtual void SetWindowCornerStyle(WindowCornerStyle /*style*/) noexcept {}
+    virtual void SetWindowBorderColor(keel::Optional<Color> /*color*/) noexcept {}
     virtual void StartSystemMove() noexcept {}
     virtual void StartSystemResize(WindowHitRegion /*edge*/) noexcept {}
 

@@ -112,6 +112,8 @@ public:
     [[nodiscard]] bool SupportsCustomTitleBar() const noexcept;
     [[nodiscard]] bool IsCustomTitleBar() const noexcept;
     bool SetCustomTitleBar(bool enabled) noexcept;
+    void SetWindowCornerStyle(WindowCornerStyle style) noexcept;
+    [[nodiscard]] WindowCornerStyle GetWindowCornerStyle() const noexcept;
     [[nodiscard]] FileDialogResult ShowFileDialog(const FileDialogOptions& opts);
     void ShowFileDialogAsync(const FileDialogOptions& opts, keel::Function<void(FileDialogResult)> onDone);
     [[nodiscard]] MessageBoxChoice ShowMessageBox(const MessageBoxOptions& opts);
@@ -228,6 +230,7 @@ private:
     void PresentFrame(bool forcePresent);
     void PaceFrame(keel::f64 elapsedMs, bool presented) noexcept;
     void RenderFrame();
+    void SyncWindowFrameAppearance() noexcept;
 
     MainWindowConfig m_config;
     keel::UniquePtr<IPlatformWindow> m_window;
@@ -245,6 +248,7 @@ private:
     keel::u32 m_fbHeight{0};
 
     UiTheme m_shellTheme = UiTheme::Dark();
+    keel::Optional<WindowCornerStyle> m_windowCornerOverride{keel::kNullOpt};
     bool m_shellLightMode = false;
     bool m_shellFloating = false;
     keel::f32 m_shellScale = 1.0f;

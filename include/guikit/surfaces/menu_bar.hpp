@@ -28,9 +28,16 @@ enum class MenuBarStyle : keel::u8 {
     Compact     ///< Ultra-compact flush strip (tighter vertical height)
 };
 
+/// Horizontal overflow policy for a desktop `MenuBar` when menus exceed available width.
+enum class MenuBarOverflow : keel::u8 {
+    Auto = 0,   ///< Move overflowing top-level menus into a trailing `»` dropdown submenu
+    Clip        ///< Keep all triggers on the bar and clip cleanly to the bar viewport
+};
+
 /// Configuration options for `ui.MenuBar(...)`.
 struct MenuBarOptions {
     MenuBarStyle style{MenuBarStyle::Header};
+    MenuBarOverflow overflow{MenuBarOverflow::Auto};
     UiSize size{UiSize::Sm};
     keel::Optional<keel::f32> gap{2.0f};
     keel::Optional<Padding> padding{keel::kNullOpt};
@@ -86,6 +93,8 @@ private:
 
     MenuBarScope(Context* ctx, Node* node, Id barId, const MenuBarOptions& opts, Response res) noexcept;
     void FinishBarIfNeeded() noexcept;
+    void RecordOverflowMenuWidth(keel::i32 idx, UiText label) noexcept;
+    void EnsureOverflowSlot(const ContextMenuOptions& sampleOpts, keel::SourceLocation loc);
 
     struct TriggerResult {
         Id popupId{Id::Null()};
@@ -97,13 +106,19 @@ private:
     Id m_barId{Id::Null()};
     MenuBarOptions m_opts{};
     keel::i32 m_menuCount{0};
+    keel::i32 m_visibleLimit{1024};
+    keel::i32 m_prevVisibleMenusSnapshot{0};
     keel::i32 m_horizNavRequest{0};
     keel::i32 m_activeMenuIdx{-1};
     bool m_hadOpenMenuAtStart{false};
     bool m_triggerClicked{false};
     bool m_openedScopeThisFrame{false};
     bool m_openSlotClosedByChild{false};
+    bool m_overflowEmitted{false};
+    bool m_prevHasOverflowSnapshot{false};
+    bool m_seenSpacer{false};
     bool m_activeBar{false};
+    MenuScope m_overflowMenu{};
 };
 
 /// Autonomous desktop MenuBar container.

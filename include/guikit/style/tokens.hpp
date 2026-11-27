@@ -1720,6 +1720,25 @@ struct SliderStyleTokens {
     }
 };
 
+/// OS window outer corner rounding preference synchronized with shell theme geometry.
+enum class WindowCornerStyle : keel::u8 {
+    Auto = 0,   ///< Derive from theme geometry (`radius <= 0` -> `Square`, small -> `RoundSmall`, otherwise `Round`)
+    Square,     ///< Sharp 90-degree OS window corners (e.g. Windows 98 / Brutalist / DWMWCP_DONOTROUND)
+    Round,      ///< Standard OS rounded corners (DWMWCP_ROUND)
+    RoundSmall  ///< Subtle small OS rounded corners (DWMWCP_ROUNDSMALL)
+};
+
+/// Returns human-readable canonical name for a `WindowCornerStyle`.
+[[nodiscard]] constexpr keel::StringRef WindowCornerStyleName(WindowCornerStyle style) noexcept {
+    switch (style) {
+        case WindowCornerStyle::Square:     return "Square";
+        case WindowCornerStyle::Round:      return "Round";
+        case WindowCornerStyle::RoundSmall: return "RoundSmall";
+        case WindowCornerStyle::Auto:
+        default:                            return "Auto";
+    }
+}
+
 /// Compact declarative recipe for generating a complete `UiTheme` via `UiTheme::Build(spec)`.
 /// Supports seed-based accent/neutral derivation, surface appearance styles, layer contrast,
 /// radius/spacing/font/border/shadow/accessibility scaling, syntax scheme selection,
@@ -1759,6 +1778,7 @@ struct ThemeSpec {
     keel::Optional<SliderTrackCaps>  sliderTrackCaps{keel::kNullOpt};     ///< Optional slider track end-cap shape (`Round`, `Square`)
     keel::Optional<keel::f32>        sliderTrackHeight{keel::kNullOpt};   ///< Optional Md slider track thickness in dp (2..12)
     keel::Optional<keel::f32>        sliderThumbSize{keel::kNullOpt};     ///< Optional Md slider thumb size in dp (10..24)
+    WindowCornerStyle                windowCorners{WindowCornerStyle::Auto}; ///< OS window corner preference (`Auto`, `Square`, `Round`, `RoundSmall`)
 
     /// Serializes this `ThemeSpec` to a compact, human-readable JSON object.
     [[nodiscard]] keel::String ToJson() const;
@@ -1773,6 +1793,7 @@ struct ShellMetrics {
     keel::f32   panelGap{0.0f};        ///< Gap between adjacent shell panels (Toolbar, Sidebar, BottomPanel, StatusBar, Canvas)
     keel::f32   panelRadius{0.0f};     ///< Default corner radius of shell chrome panels
     keel::f32   panelBorderWidth{1.0f};///< Default border/divider stroke thickness of shell chrome panels
+    WindowCornerStyle windowCorners{WindowCornerStyle::Auto}; ///< OS window corner rounding policy
 };
 
 /// Color palette definition for an entire theme.

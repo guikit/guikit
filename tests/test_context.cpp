@@ -20997,6 +20997,223 @@ void TestHeaderBarAndSystemDialogsWorkflow() {
         CHECK(ui.ResolveWindowHitRegion({733.0f, 20.0f}) == WindowHitRegion::MaximizeButton);
         CHECK(ui.ResolveWindowHitRegion({689.0f, 20.0f}) == WindowHitRegion::MinimizeButton);
         CHECK(ui.ResolveWindowHitRegion({400.0f, 20.0f}) == WindowHitRegion::Caption);
+
+        // Windows 98 (Classic3D / Bevel3D) HeaderBar uses accent caption metrics & compact 20x18 beveled controls
+        const UiTheme win98 = UiTheme::Windows98();
+        const HeaderBarChromeMetrics win98Metrics = win98.Painter().GetHeaderBarMetrics(win98, true);
+        CHECK(win98Metrics.accentCaption);
+        CHECK_NEAR(win98Metrics.controlBtnWidth, 20.0f, 0.1f);
+        CHECK_NEAR(win98Metrics.controlBtnHeight, 18.0f, 0.1f);
+        CHECK(win98Metrics.closeExtraGap > 0.0f);
+        CHECK(win98Metrics.titleColor == Color::Hex(0xFFFFFFFF));
+
+        ui.SetTheme(win98);
+        minimalFrame();
+        minimalFrame();
+        // Right padding = 5dp -> Close [775..795] (center 785), 2dp gap -> Max [753..773] (center 763), Min [733..753] (center 743)
+        CHECK(ui.ResolveWindowHitRegion({785.0f, 20.0f}) == WindowHitRegion::CloseButton);
+        CHECK(ui.ResolveWindowHitRegion({763.0f, 20.0f}) == WindowHitRegion::MaximizeButton);
+        CHECK(ui.ResolveWindowHitRegion({743.0f, 20.0f}) == WindowHitRegion::MinimizeButton);
+        CHECK(ui.ResolveWindowHitRegion({400.0f, 20.0f}) == WindowHitRegion::Caption);
+
+        // 4. StatusBar responsive overflow: compact icon+text actions -> priority-hide telemetry & orphan separators -> zero overlap
+        {
+            Context sbUi;
+            sbUi.SetTheme(UiTheme::Windows98());
+            Rect cmdRect{};
+            Rect codeRect{};
+            auto runSb = [&](keel::f32 w) {
+                sbUi.BeginFrame({w, 120.0f}, 1.0f);
+                if (auto col = guikit::Column(sbUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    guikit::Spacer(sbUi);
+                    if (auto sb = guikit::StatusBar(sbUi)) {
+                        sb.Item({.text = "GPU Shaders: Ready", .dotColor = Color::Hex(0x006666FF), .priority = -1});
+                        sb.Separator();
+                        sb.Item({.text = "94 FPS", .priority = -2});
+                        sb.Separator();
+                        sb.Item({.text = "CPU: 0.85 ms (0.9%)", .priority = -3});
+                        sb.Separator();
+                        sb.Item({.text = "GPU: 0.54 ms (3% budget)", .priority = -4});
+                        sb.Separator();
+                        sb.Item({.text = "RAM: 299.8 MB", .priority = -5});
+                        sb.Spacer();
+                        cmdRect = sb.Action({.text = "Command Palette", .icon = Icon::Search()}).rect;
+                        codeRect = sb.Action({.text = "C++ Code", .icon = Icon::Eye()}).rect;
+                    }
+                }
+                sbUi.EndFrame(canvas);
+            };
+
+            // Wide: full labels for actions
+            runSb(1100.0f);
+            runSb(1100.0f);
+            CHECK(cmdRect.w > 80.0f);
+            CHECK(codeRect.w > 50.0f);
+            CHECK(cmdRect.Right() <= codeRect.x + 0.5f);
+
+            // Narrow: actions compact to icon-only (24dp) and lower-priority telemetry hides cleanly with zero overlap
+            runSb(320.0f);
+            runSb(320.0f);
+            CHECK(cmdRect.w > 16.0f && cmdRect.w <= 28.0f);
+            CHECK(codeRect.w > 16.0f && codeRect.w <= 28.0f);
+            CHECK(cmdRect.Right() <= codeRect.x + 0.5f);
+            CHECK(codeRect.Right() <= 320.0f);
+        }
+
+        // 5. HeaderBar & StatusBar ellipsis truncation ("...") on constrained width
+        {
+            class EllipsisSpyCanvas final : public NullCanvas {
+            public:
+                bool sawEllipsis{false};
+                static bool ContainsEllipsis(keel::StringRef s) noexcept {
+                    if (s.size() < 3u) return false;
+                    for (keel::usize i = 0u; i + 2u < s.size(); ++i) {
+                        if (s[i] == '.' && s[i + 1u] == '.' && s[i + 2u] == '.') return true;
+                    }
+                    return false;
+                }
+                void DrawText(keel::StringRef text, Vec2 pos, keel::f32 fontSize, Color color) override {
+                    if (ContainsEllipsis(text)) {
+                        sawEllipsis = true;
+                    }
+                    NullCanvas::DrawText(text, pos, fontSize, color);
+                }
+                void DrawTextBox(keel::StringRef text, Rect bounds, keel::f32 fontSize, Color color, keel::f32 ax = 0.0f, keel::f32 ay = 0.5f) override {
+                    if (ContainsEllipsis(text)) {
+                        sawEllipsis = true;
+                    }
+                    NullCanvas::DrawTextBox(text, bounds, fontSize, color, ax, ay);
+                }
+            };
+
+            // 5a. Narrow HeaderBar truncates long title with "..."
+            {
+                EllipsisSpyCanvas spy;
+                Context hUi;
+                hUi.BeginFrame({200.0f, 120.0f}, 1.0f);
+                if (auto col = guikit::Column(hUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    if (auto hb = guikit::HeaderBar(hUi, {
+                        .title = "GuiKit Demo (C++20 Immediate Mode + Native Win32 OpenGL 3.3)",
+                        .subtitle = "Secondary Info",
+                        .controlsPlacement = WindowControlsPlacement::Right
+                    })) {
+                        (void)hb;
+                    }
+                }
+                hUi.EndFrame(spy);
+                CHECK(spy.sawEllipsis);
+            }
+
+            // 5b. Ultra-narrow StatusBar truncates last visible segment with "..."
+            {
+                EllipsisSpyCanvas spy;
+                Context sUi;
+                sUi.BeginFrame({90.0f, 80.0f}, 1.0f);
+                if (auto col = guikit::Column(sUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    guikit::Spacer(sUi);
+                    if (auto sb = guikit::StatusBar(sUi)) {
+                        sb.Item({.text = "GPU Shaders: CPU Fallback Mode Active"});
+                    }
+                }
+                sUi.EndFrame(spy);
+                CHECK(spy.sawEllipsis);
+            }
+        }
+
+        // 6. MenuBar `»` overflow: collapses overflowing menus into a cascading submenu and restores when widened
+        {
+            Context mbUi;
+            mbUi.SetTheme(UiTheme::Windows98());
+            bool anyOpen = false;
+            bool viewItemFired = false;
+            bool toolsItemFired = false;
+            bool helpItemFired = false;
+            Rect ovBtnRect{};
+            keel::i32 visibleBarTriggers = 0;
+
+            auto inspectMenuBar = [&](const Node* mbNode) {
+                ovBtnRect = Rect{};
+                visibleBarTriggers = 0;
+                if (!mbNode) return;
+                for (const Node* ch = mbNode->firstChild; ch != nullptr; ch = ch->nextSibling) {
+                    if (ch->type == NodeType::Custom && !ch->text.empty()) {
+                        if (ch->text == ">>") {
+                            ovBtnRect = ch->computedRect;
+                        } else {
+                            ++visibleBarTriggers;
+                        }
+                    }
+                }
+            };
+
+            auto runMb = [&](keel::f32 w) {
+                const Node* mbNode = nullptr;
+                mbUi.BeginFrame({w, 300.0f}, 1.0f);
+                if (auto col = guikit::Column(mbUi, {.width = SizeMode::Stretch, .height = SizeMode::Stretch})) {
+                    if (auto mb = guikit::MenuBar(mbUi, {.style = MenuBarStyle::Header})) {
+                        mbNode = mbUi.GetCurrentContainer();
+                        anyOpen = mb.IsAnyMenuOpen();
+                        if (auto f = mb.Menu("File")) {
+                            (void)f.Item("New");
+                        }
+                        if (auto e = mb.Menu("Edit")) {
+                            (void)e.Item("Copy");
+                        }
+                        if (auto v = mb.Menu("View")) {
+                            if (v.Item("Toggle Grid")) viewItemFired = true;
+                        }
+                        if (auto t = mb.Menu("Tools")) {
+                            if (t.Item("Profiler")) toolsItemFired = true;
+                        }
+                        if (auto h = mb.Menu("Help")) {
+                            if (h.Item("About GuiKit")) helpItemFired = true;
+                        }
+                        mb.Spacer();
+                        (void)guikit::Tag(mbUi, "Ready", {.size = UiSize::Xs});
+                    }
+                }
+                mbUi.EndFrame(canvas);
+                inspectMenuBar(mbNode);
+            };
+
+            // Wide: all 5 triggers visible directly on the bar, no `»` overflow button
+            runMb(600.0f);
+            runMb(600.0f);
+            CHECK(visibleBarTriggers == 5);
+            CHECK(ovBtnRect.w == 0.0f);
+
+            // Narrow: trailing menus collapse into `»` button inside the 220dp bar
+            runMb(220.0f);
+            runMb(220.0f);
+            runMb(220.0f);
+            CHECK(visibleBarTriggers > 0 && visibleBarTriggers < 5);
+            CHECK(ovBtnRect.w >= 24.0f && ovBtnRect.Right() <= 220.0f);
+
+            // Click `»` trigger -> opens overflow popup, keyboard Down -> Right -> Enter activates first overflowed submenu item!
+            mbUi.OnMouseMove(ovBtnRect.Center());
+            mbUi.OnMouseDown(1);
+            runMb(220.0f);
+            mbUi.OnMouseUp(1);
+            runMb(220.0f);
+            CHECK(anyOpen);
+            CHECK(mbUi.GetOpenPopupRect().w > 80.0f);
+
+            mbUi.OnKeyDown(Key::Down);  // Highlight first overflowed menu (e.g. View / Tools)
+            runMb(220.0f);
+            mbUi.OnKeyDown(Key::Right); // Expand its cascading SubMenu
+            runMb(220.0f);
+            mbUi.OnKeyDown(Key::Enter); // Activate first item inside the overflowed SubMenu
+            runMb(220.0f);
+            CHECK(viewItemFired || toolsItemFired || helpItemFired);
+            runMb(220.0f);
+            CHECK(!anyOpen);
+
+            // Widen back: all 5 menus reappear on the bar and `»` disappears
+            runMb(600.0f);
+            runMb(600.0f);
+            CHECK(visibleBarTriggers == 5);
+            CHECK(ovBtnRect.w == 0.0f);
+        }
     }
 
     keel::println("  [PASS] TestHeaderBarAndSystemDialogsWorkflow completed");

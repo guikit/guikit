@@ -239,6 +239,7 @@ bool MainWindow::Initialize() {
         m_shellLightMode = (m_shellTheme.mode == ThemeMode::Light);
         m_shellFloating = (m_shellTheme.shellStyle == ShellStyle::Floating);
     }
+    SyncWindowFrameAppearance();
     return true;
 }
 
@@ -600,12 +601,32 @@ void MainWindow::SetTextRenderSettings(const TextRenderSettings& settings) noexc
     m_ui.RequestRepaint(2);
 }
 
+void MainWindow::SyncWindowFrameAppearance() noexcept {
+    if (!m_window) {
+        return;
+    }
+    WindowCornerStyle style = m_windowCornerOverride.value_or(m_shellTheme.shell.windowCorners);
+    if (style == WindowCornerStyle::Auto) {
+        const keel::f32 mdRadius = m_shellTheme.GetRadius(UiSize::Md);
+        if (mdRadius <= 0.01f) {
+            style = WindowCornerStyle::Square;
+        } else if (mdRadius <= 3.5f) {
+            style = WindowCornerStyle::RoundSmall;
+        } else {
+            style = WindowCornerStyle::Round;
+        }
+    }
+    m_window->SetWindowCornerStyle(style);
+    m_window->SetWindowBorderColor(m_shellTheme.palette.border);
+}
+
 void MainWindow::SetShellTheme(const UiTheme& theme) noexcept {
     m_shellTheme = theme;
     m_shellLightMode = (m_shellTheme.mode == ThemeMode::Light);
     m_shellFloating = (m_shellTheme.shellStyle == ShellStyle::Floating);
     m_ui.SetTheme(m_shellTheme);
     m_ui.SetClearColor(m_shellTheme.palette.background);
+    SyncWindowFrameAppearance();
     m_ui.InvalidateAll();
 }
 
@@ -616,6 +637,7 @@ void MainWindow::SetShellThemePreset(ThemePreset preset) noexcept {
     m_shellLightMode = (m_shellTheme.mode == ThemeMode::Light);
     m_ui.SetTheme(m_shellTheme);
     m_ui.SetClearColor(m_shellTheme.palette.background);
+    SyncWindowFrameAppearance();
     m_ui.InvalidateAll();
 }
 
@@ -633,6 +655,7 @@ void MainWindow::SetShellLightMode(bool lightMode) noexcept {
     m_shellTheme.SetMode(m_shellLightMode ? ThemeMode::Light : ThemeMode::Dark);
     m_ui.SetTheme(m_shellTheme);
     m_ui.SetClearColor(m_shellTheme.palette.background);
+    SyncWindowFrameAppearance();
     m_ui.InvalidateAll();
 }
 
@@ -640,6 +663,7 @@ void MainWindow::SetShellFloating(bool floating) noexcept {
     m_shellFloating = floating;
     m_shellTheme.SetShellStyle(m_shellFloating ? ShellStyle::Floating : ShellStyle::Docked);
     m_ui.SetTheme(m_shellTheme);
+    SyncWindowFrameAppearance();
     m_ui.InvalidateAll();
 }
 
@@ -721,9 +745,21 @@ bool MainWindow::SetCustomTitleBar(bool enabled) noexcept {
         return false;
     }
     m_config.customTitleBar = m_window->IsCustomTitleBar();
+    SyncWindowFrameAppearance();
     m_ui.InvalidateAll();
     m_ui.RequestRepaint(2);
     return true;
+}
+
+void MainWindow::SetWindowCornerStyle(WindowCornerStyle style) noexcept {
+    m_windowCornerOverride = (style == WindowCornerStyle::Auto)
+        ? keel::Optional<WindowCornerStyle>(keel::kNullOpt)
+        : keel::Optional<WindowCornerStyle>(style);
+    SyncWindowFrameAppearance();
+}
+
+WindowCornerStyle MainWindow::GetWindowCornerStyle() const noexcept {
+    return m_windowCornerOverride.value_or(m_shellTheme.shell.windowCorners);
 }
 
 FileDialogResult MainWindow::ShowFileDialog(const FileDialogOptions& opts) {

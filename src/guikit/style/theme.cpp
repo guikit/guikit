@@ -1262,6 +1262,9 @@ keel::String ThemeSpec::ToJson() const {
     out.append(keel::format("  \"focusRingWidth\": {:.2f},\n", focusRingWidth));
     out.append(keel::format("  \"disabledOpacity\": {:.2f},\n", disabledOpacity));
     out.append(keel::format("  \"animationScale\": {:.2f},\n", animationScale));
+    if (windowCorners != WindowCornerStyle::Auto) {
+        out.append(keel::format("  \"windowCorners\": \"{}\",\n", WindowCornerStyleName(windowCorners)));
+    }
     out.append(keel::format("  \"shellStyle\": \"{}\"\n", (shellStyle == ShellStyle::Floating) ? "Floating" : "Docked"));
     out.append("}");
     return out;
@@ -1350,6 +1353,13 @@ keel::Optional<ThemeSpec> ThemeSpec::FromJson(keel::StringRef json) noexcept {
             keel::StringRef val;
             if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
             spec.shellStyle = (val == "Floating" || val == "floating") ? ShellStyle::Floating : ShellStyle::Docked;
+        } else if (key == "windowCorners") {
+            keel::StringRef val;
+            if (!ParseJsonString(json, pos, val)) return keel::kNullOpt;
+            if (val == "Square" || val == "square") spec.windowCorners = WindowCornerStyle::Square;
+            else if (val == "Round" || val == "round") spec.windowCorners = WindowCornerStyle::Round;
+            else if (val == "RoundSmall" || val == "roundSmall") spec.windowCorners = WindowCornerStyle::RoundSmall;
+            else spec.windowCorners = WindowCornerStyle::Auto;
         } else if (key == "accent" || key == "neutral" || key == "background" ||
                    key == "surface" || key == "border" || key == "textPrimary" ||
                    key == "success" || key == "warning" || key == "danger" || key == "info") {
@@ -2050,6 +2060,7 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
         theme.SetSliderThumbSize(*spec.sliderThumbSize);
     }
     theme.SetShellStyle(spec.shellStyle);
+    theme.shell.windowCorners = spec.windowCorners;
     return theme;
 }
 
