@@ -880,8 +880,13 @@ struct UiTheme {
     /// Compiles a complete `UiTheme` from a declarative `ThemeSpec` recipe.
     [[nodiscard]] static UiTheme Build(const ThemeSpec& spec) noexcept;
 
-    /// Smoothly interpolates colors, shadows, radii, and metrics between two themes (`t` in [0..1]).
+    /// Smoothly interpolates colors, shadows, and corner radii between two themes (`t` in [0..1]) without layout reflow.
     [[nodiscard]] static UiTheme Lerp(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept;
+
+    /// Pure color-only morphing (`t` in [0..1]): interpolates palette, syntax, semantic variant colors,
+    /// bevel tones, shadow colors, and `disabledOpacity` from `a` toward `b` while preserving 100% of `a`'s
+    /// chrome, fill style, radii, spacing, and metrics (zero layout reflow, zero chrome snap).
+    [[nodiscard]] static UiTheme LerpColors(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept;
 
     /// Updates color palette, syntax palette, shadows, and semantic variants to Dark or Light mode while preserving shell style.
     void SetMode(ThemeMode m) noexcept;

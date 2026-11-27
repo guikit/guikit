@@ -2175,7 +2175,7 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     CHECK(!ThemeSpec::FromJson("not-json").has_value());
     CHECK(!ThemeSpec::FromJson("{\"base\": ").has_value());
 
-    // 6. Smooth UiTheme::Lerp interpolation
+    // 6. Smooth UiTheme::Lerp & pure color-only UiTheme::LerpColors interpolation
     const UiTheme dark = UiTheme::Dark();
     const UiTheme light = UiTheme::Light();
     const UiTheme mid = UiTheme::Lerp(dark, light, 0.5f);
@@ -2183,6 +2183,20 @@ void TestThemeSystemColorSciencePresetsSpecJsonAndLerp() {
     CHECK(mid.palette.background.RelativeLuminance() < light.palette.background.RelativeLuminance());
     CHECK(UiTheme::Lerp(dark, light, 0.0f).palette.background == dark.palette.background);
     CHECK(UiTheme::Lerp(dark, light, 1.0f).palette.background == light.palette.background);
+
+    // Pure color-only LerpColors preserves base chrome, radii, spacing & lineHeight even at t = 1.0
+    const UiTheme win98 = UiTheme::Windows98();
+    const UiTheme colorMorphMid = UiTheme::LerpColors(win98, dark, 0.5f);
+    const UiTheme colorMorphFull = UiTheme::LerpColors(win98, dark, 1.0f);
+    CHECK(colorMorphMid.chromeStyle == ChromeStyle::Classic3D);
+    CHECK(colorMorphFull.chromeStyle == ChromeStyle::Classic3D);
+    CHECK(keel::abs(colorMorphFull.radius[2] - win98.radius[2]) < 0.001f);
+    CHECK(keel::abs(colorMorphFull.spacing[2] - win98.spacing[2]) < 0.001f);
+    CHECK(keel::abs(colorMorphFull.lineHeightMultiplier - win98.lineHeightMultiplier) < 0.001f);
+    CHECK(colorMorphFull.palette.background == dark.palette.background);
+    CHECK(colorMorphFull.syntax.keyword == dark.syntax.keyword);
+    CHECK(colorMorphFull.mode == ThemeMode::Dark);
+    CHECK(UiTheme::LerpColors(win98, dark, 0.0f).palette.background == win98.palette.background);
 
     // 7. Shared OS system theme query helper (QueryOsSystemTheme)
     {

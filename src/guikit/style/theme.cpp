@@ -1875,28 +1875,19 @@ UiTheme UiTheme::Build(const ThemeSpec& spec) noexcept {
     return theme;
 }
 
-UiTheme UiTheme::Lerp(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept {
-    const keel::f32 f = keel::clamp(t, 0.0f, 1.0f);
-    if (f <= 0.0f) return a;
-    if (f >= 1.0f) return b;
+namespace {
 
+void BlendThemeColorFields(UiTheme& out, const UiTheme& a, const UiTheme& b, keel::f32 f) noexcept {
     auto lerpF = [f](keel::f32 x, keel::f32 y) noexcept -> keel::f32 { return x + f * (y - x); };
     auto lerpC = [f](Color x, Color y) noexcept -> Color { return Color::Lerp(x, y, f); };
 
-    UiTheme out = (f < 0.5f) ? a : b;
-    out.lineHeightMultiplier = lerpF(a.lineHeightMultiplier, b.lineHeightMultiplier);
-    out.focusRingWidth = lerpF(a.focusRingWidth, b.focusRingWidth);
     out.disabledOpacity = lerpF(a.disabledOpacity, b.disabledOpacity);
-    out.borderScale = lerpF(a.borderScale, b.borderScale);
-    out.animationScale = lerpF(a.animationScale, b.animationScale);
-    out.shadowsEnabled = a.shadowsEnabled || b.shadowsEnabled;
 
-    // Bevel palette & structural offsets
+    // Bevel palette colors
     out.bevel.highlightOuter = lerpC(a.bevel.highlightOuter, b.bevel.highlightOuter);
     out.bevel.highlightInner = lerpC(a.bevel.highlightInner, b.bevel.highlightInner);
     out.bevel.shadowInner    = lerpC(a.bevel.shadowInner, b.bevel.shadowInner);
     out.bevel.shadowOuter    = lerpC(a.bevel.shadowOuter, b.bevel.shadowOuter);
-    out.chrome.buttonPressOffset = lerpF(a.chrome.buttonPressOffset, b.chrome.buttonPressOffset);
 
     // Palette
     out.palette.background        = lerpC(a.palette.background, b.palette.background);
@@ -1939,31 +1930,67 @@ UiTheme UiTheme::Lerp(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept 
     out.syntax.editorBg      = lerpC(a.syntax.editorBg, b.syntax.editorBg);
     out.syntax.gutterBg      = lerpC(a.syntax.gutterBg, b.syntax.gutterBg);
 
-    // Variants
+    // Variant colors
     for (keel::usize i = 0u; i < out.variants.size(); ++i) {
-        out.variants[i].bg          = lerpC(a.variants[i].bg, b.variants[i].bg);
-        out.variants[i].bgHover     = lerpC(a.variants[i].bgHover, b.variants[i].bgHover);
-        out.variants[i].bgActive    = lerpC(a.variants[i].bgActive, b.variants[i].bgActive);
-        out.variants[i].text        = lerpC(a.variants[i].text, b.variants[i].text);
-        out.variants[i].border      = lerpC(a.variants[i].border, b.variants[i].border);
+        out.variants[i].bg       = lerpC(a.variants[i].bg, b.variants[i].bg);
+        out.variants[i].bgHover  = lerpC(a.variants[i].bgHover, b.variants[i].bgHover);
+        out.variants[i].bgActive = lerpC(a.variants[i].bgActive, b.variants[i].bgActive);
+        out.variants[i].text     = lerpC(a.variants[i].text, b.variants[i].text);
+        out.variants[i].border   = lerpC(a.variants[i].border, b.variants[i].border);
+    }
+
+    // Shadow colors
+    for (keel::usize i = 0u; i < out.shadows.size(); ++i) {
+        out.shadows[i].color = lerpC(a.shadows[i].color, b.shadows[i].color);
+    }
+
+    // Keep perceived Dark/Light mode in sync with the blended canvas luminance
+    out.mode = (out.palette.background.RelativeLuminance() < 0.25f) ? ThemeMode::Dark : ThemeMode::Light;
+}
+
+} // namespace
+
+UiTheme UiTheme::LerpColors(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept {
+    const keel::f32 f = keel::clamp(t, 0.0f, 1.0f);
+    if (f <= 0.0f) return a;
+    UiTheme out = a;
+    BlendThemeColorFields(out, a, b, f);
+    return out;
+}
+
+UiTheme UiTheme::Lerp(const UiTheme& a, const UiTheme& b, keel::f32 t) noexcept {
+    const keel::f32 f = keel::clamp(t, 0.0f, 1.0f);
+    if (f <= 0.0f) return a;
+    if (f >= 1.0f) return b;
+
+    auto lerpF = [f](keel::f32 x, keel::f32 y) noexcept -> keel::f32 { return x + f * (y - x); };
+
+    UiTheme out = (f < 0.5f) ? a : b;
+    out.focusRingWidth = lerpF(a.focusRingWidth, b.focusRingWidth);
+    out.borderScale = lerpF(a.borderScale, b.borderScale);
+    out.animationScale = lerpF(a.animationScale, b.animationScale);
+    out.shadowsEnabled = a.shadowsEnabled || b.shadowsEnabled;
+    out.chrome.buttonPressOffset = lerpF(a.chrome.buttonPressOffset, b.chrome.buttonPressOffset);
+
+    BlendThemeColorFields(out, a, b, f);
+
+    for (keel::usize i = 0u; i < out.variants.size(); ++i) {
         out.variants[i].borderWidth = lerpF(a.variants[i].borderWidth, b.variants[i].borderWidth);
     }
 
-    // Shadows, spacing, radii
+    // Paint-only shadow blur/offset & corner radii (spacing & lineHeight stay reflow-free)
     for (keel::usize i = 0u; i < out.shadows.size(); ++i) {
         out.shadows[i].blur     = lerpF(a.shadows[i].blur, b.shadows[i].blur);
         out.shadows[i].offset.x = lerpF(a.shadows[i].offset.x, b.shadows[i].offset.x);
         out.shadows[i].offset.y = lerpF(a.shadows[i].offset.y, b.shadows[i].offset.y);
-        out.shadows[i].color    = lerpC(a.shadows[i].color, b.shadows[i].color);
     }
     for (keel::usize i = 0u; i < out.radius.size(); ++i) {
         out.radius[i]  = lerpF(a.radius[i], b.radius[i]);
-        out.spacing[i] = lerpF(a.spacing[i], b.spacing[i]);
-        out.metrics[i].cornerRadius = lerpF(a.metrics[i].cornerRadius, b.metrics[i].cornerRadius);
-        out.inputs[i].cornerRadius  = lerpF(a.inputs[i].cornerRadius, b.inputs[i].cornerRadius);
-        out.selects[i].cornerRadius = lerpF(a.selects[i].cornerRadius, b.selects[i].cornerRadius);
+        out.metrics[i].cornerRadius    = lerpF(a.metrics[i].cornerRadius, b.metrics[i].cornerRadius);
+        out.inputs[i].cornerRadius     = lerpF(a.inputs[i].cornerRadius, b.inputs[i].cornerRadius);
+        out.selects[i].cornerRadius    = lerpF(a.selects[i].cornerRadius, b.selects[i].cornerRadius);
         out.checkboxes[i].cornerRadius = lerpF(a.checkboxes[i].cornerRadius, b.checkboxes[i].cornerRadius);
-        out.sliders[i].cornerRadius = lerpF(a.sliders[i].cornerRadius, b.sliders[i].cornerRadius);
+        out.sliders[i].cornerRadius    = lerpF(a.sliders[i].cornerRadius, b.sliders[i].cornerRadius);
     }
 
     return out;
