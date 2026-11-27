@@ -366,6 +366,8 @@ DockLayout DockLayout::Clone() const {
     for (const auto& h : m_closedHistory) {
         copy.m_closedHistory.push_back(h);
     }
+    copy.m_expandedPanelId = m_expandedPanelId;
+    copy.m_expandedFullscreen = m_expandedFullscreen;
     return copy;
 }
 
@@ -375,6 +377,8 @@ void DockLayout::Clear() noexcept {
     m_floating.clear();
     m_closedPanels.clear();
     m_closedHistory.clear();
+    m_expandedPanelId.clear();
+    m_expandedFullscreen = false;
     ++m_revision;
 }
 
@@ -447,6 +451,9 @@ bool DockLayout::IsPanelClosed(keel::StringRef id) const noexcept {
 }
 
 bool DockLayout::IsPanelActive(keel::StringRef id) const noexcept {
+    if (!id.empty() && m_expandedPanelId.as_ref() == id) {
+        return true;
+    }
     const keel::u32 nodeIdx = FindPanelNode(id);
     if (nodeIdx != kDockInvalidNode && nodeIdx < m_nodes.size()) {
         const DockNode& n = m_nodes[nodeIdx];
@@ -633,6 +640,10 @@ bool DockLayout::RemoveFromFloating(keel::StringRef id) {
 
 bool DockLayout::RemovePanel(keel::StringRef id) {
     if (id.empty()) return false;
+    if (m_expandedPanelId.as_ref() == id) {
+        m_expandedPanelId.clear();
+        m_expandedFullscreen = false;
+    }
     const bool r1 = RemoveFromDockedTree(id);
     const bool r2 = RemoveFromFloating(id);
     return r1 || r2;
@@ -963,6 +974,40 @@ bool DockLayout::BringFloatToFront(keel::StringRef id) {
     return true;
 }
 
+bool DockLayout::ExpandPanel(keel::StringRef id, bool fullscreen) {
+    if (!IsValidPanelId(id) || !HasPanel(id)) {
+        return false;
+    }
+    SetActivePanel(id);
+    if (m_expandedPanelId.as_ref() != id || m_expandedFullscreen != fullscreen) {
+        m_expandedPanelId = DockPanelId(id);
+        m_expandedFullscreen = fullscreen;
+        ++m_revision;
+    }
+    return true;
+}
+
+bool DockLayout::SetExpandedFullscreen(bool fullscreen) noexcept {
+    if (m_expandedPanelId.empty()) {
+        return false;
+    }
+    if (m_expandedFullscreen != fullscreen) {
+        m_expandedFullscreen = fullscreen;
+        ++m_revision;
+    }
+    return true;
+}
+
+bool DockLayout::RestoreExpanded() noexcept {
+    if (m_expandedPanelId.empty()) {
+        return false;
+    }
+    m_expandedPanelId.clear();
+    m_expandedFullscreen = false;
+    ++m_revision;
+    return true;
+}
+
 bool DockLayout::SetSplitRatio(keel::u32 nodeIdx, keel::f32 ratio) noexcept {
     if (nodeIdx >= m_nodes.size() || m_nodes[nodeIdx].kind != DockNodeKind::Split) {
         return false;
@@ -1025,6 +1070,8 @@ bool DockLayout::LoadLayout(keel::StringRef serialized) {
     m_floating = keel::move(parsedFloating);
     m_closedPanels.clear();
     m_closedHistory.clear();
+    m_expandedPanelId.clear();
+    m_expandedFullscreen = false;
     ++m_revision;
     return true;
 }

@@ -146,6 +146,27 @@ public:
     /// Raises floating card `id` above all other floating cards.
     bool BringFloatToFront(keel::StringRef id);
 
+    /// Expands `id` into a focus modal overlay above the viewport (optionally immediately in fullscreen).
+    /// Orthogonal to the dock tree and floating cards: restoring returns the panel to its exact prior location.
+    bool ExpandPanel(keel::StringRef id, bool fullscreen = false);
+
+    /// Toggles or sets fullscreen (100% viewport) mode for the currently expanded panel.
+    bool SetExpandedFullscreen(bool fullscreen) noexcept;
+    bool ToggleExpandedFullscreen() noexcept { return SetExpandedFullscreen(!m_expandedFullscreen); }
+
+    /// Restores the currently expanded panel back to its docked or floating position.
+    bool RestoreExpanded() noexcept;
+
+    /// Queries for the currently expanded panel overlay state.
+    [[nodiscard]] keel::StringRef ExpandedPanelId() const noexcept { return m_expandedPanelId.as_ref(); }
+    [[nodiscard]] bool HasExpandedPanel() const noexcept { return !m_expandedPanelId.empty(); }
+    [[nodiscard]] bool IsPanelExpanded(keel::StringRef id) const noexcept {
+        return !id.empty() && m_expandedPanelId.as_ref() == id;
+    }
+    [[nodiscard]] bool IsExpandedFullscreen() const noexcept {
+        return !m_expandedPanelId.empty() && m_expandedFullscreen;
+    }
+
     /// Sets the split ratio of node `nodeIdx` (clamped to [0.05..0.95]).
     bool SetSplitRatio(keel::u32 nodeIdx, keel::f32 ratio) noexcept;
 
@@ -205,6 +226,8 @@ private:
     keel::Array<DockFloatCard> m_floating;
     keel::Array<DockPanelId> m_closedPanels;
     keel::Array<ClosedPanelRecord> m_closedHistory;
+    DockPanelId m_expandedPanelId{};
+    bool m_expandedFullscreen{false};
     keel::u64 m_revision{1};
 };
 
@@ -217,6 +240,7 @@ struct DockPanelOptions {
     bool closable{false};
     bool floatable{true};
     bool allowDock{true};
+    bool expandable{true};
     keel::Optional<Padding> padding{Padding::All(0.0f)};
     keel::Optional<keel::f32> gap{0.0f};
     bool scrollable{false};
@@ -231,7 +255,11 @@ struct DockAreaOptions {
     bool resizable{true};              ///< Allow dragging split sashes to resize panes
     bool reorderable{true};            ///< Allow dragging tabs within a tab group to reorder
     bool dockable{true};               ///< Allow dragging tabs between groups and splitting panes/edges
-    bool tearable{true};               ///< Allow tearing a tab into an in-window floating card
+    bool tearable{true};               ///< Allow detaching a panel into an in-window floating card
+    bool expandable{true};             ///< Allow double-clicking a tab or clicking Expand to open in modal/fullscreen
+    bool expandCloseOnBackdrop{true};  ///< Clicking the dimmed backdrop outside the expanded modal restores the panel
+    bool expandCloseOnEscape{true};    ///< Pressing Escape while a panel is expanded restores the panel to dock
+    keel::f32 expandBackdropOpacity{0.58f}; ///< Dimmed backdrop alpha behind the expanded modal (0.0..0.95)
     bool showTabBarForSingle{true};    ///< Render the tab bar even when a group has only one panel
     bool animateLayout{true};          ///< Smoothly interpolate pane rects on structural layout changes
     TabBarStyle tabStyle{TabBarStyle::Underline};
@@ -262,13 +290,17 @@ public:
         bool floating,
         bool closed,
         Rect bounds,
-        Node* outerContainer = nullptr
+        Node* outerContainer = nullptr,
+        Node* modalContainer = nullptr,
+        bool expanded = false
     ) noexcept
         : ContainerScope(ctx, node)
         , m_outerContainer(outerContainer)
+        , m_modalContainer(modalContainer)
         , m_hasIdScope(hasIdScope)
         , m_active(active)
         , m_floating(floating)
+        , m_expanded(expanded)
         , m_closed(closed)
         , m_bounds(bounds) {}
 
@@ -282,15 +314,19 @@ public:
     DockPanelScope(DockPanelScope&& other) noexcept
         : ContainerScope(keel::move(other))
         , m_outerContainer(other.m_outerContainer)
+        , m_modalContainer(other.m_modalContainer)
         , m_hasIdScope(other.m_hasIdScope)
         , m_active(other.m_active)
         , m_floating(other.m_floating)
+        , m_expanded(other.m_expanded)
         , m_closed(other.m_closed)
         , m_bounds(other.m_bounds) {
         other.m_outerContainer = nullptr;
+        other.m_modalContainer = nullptr;
         other.m_hasIdScope = false;
         other.m_active = false;
         other.m_floating = false;
+        other.m_expanded = false;
         other.m_closed = false;
     }
 
@@ -299,15 +335,19 @@ public:
             ClosePanel();
             ContainerScope::operator=(keel::move(other));
             m_outerContainer = other.m_outerContainer;
+            m_modalContainer = other.m_modalContainer;
             m_hasIdScope = other.m_hasIdScope;
             m_active = other.m_active;
             m_floating = other.m_floating;
+            m_expanded = other.m_expanded;
             m_closed = other.m_closed;
             m_bounds = other.m_bounds;
             other.m_outerContainer = nullptr;
+            other.m_modalContainer = nullptr;
             other.m_hasIdScope = false;
             other.m_active = false;
             other.m_floating = false;
+            other.m_expanded = false;
             other.m_closed = false;
         }
         return *this;
@@ -320,6 +360,7 @@ public:
 
     [[nodiscard]] constexpr bool IsActive() const noexcept { return m_active; }
     [[nodiscard]] constexpr bool IsFloating() const noexcept { return m_floating; }
+    [[nodiscard]] constexpr bool IsExpanded() const noexcept { return m_expanded; }
     [[nodiscard]] constexpr bool IsClosed() const noexcept { return m_closed; }
     [[nodiscard]] constexpr bool Closed() const noexcept { return m_closed; }
     [[nodiscard]] constexpr Rect Bounds() const noexcept { return m_bounds; }
@@ -328,12 +369,19 @@ private:
     void ClosePanel() noexcept {
         Context* savedCtx = m_ctx;
         Node* outer = m_outerContainer;
+        Node* modal = m_modalContainer;
         const bool popId = m_hasIdScope;
         m_outerContainer = nullptr;
+        m_modalContainer = nullptr;
         m_hasIdScope = false;
         ContainerScope::Close();
         if (outer != nullptr && savedCtx != nullptr) {
             savedCtx->PopContainer(outer);
+        }
+        if (modal != nullptr && savedCtx != nullptr) {
+            const Id modalId = modal->id;
+            savedCtx->PopContainer(modal);
+            savedCtx->EndModalScope(true, modalId);
         }
         if (popId && savedCtx != nullptr) {
             savedCtx->PopId();
@@ -341,9 +389,11 @@ private:
     }
 
     Node* m_outerContainer{nullptr};
+    Node* m_modalContainer{nullptr};
     bool m_hasIdScope{false};
     bool m_active{false};
     bool m_floating{false};
+    bool m_expanded{false};
     bool m_closed{false};
     Rect m_bounds{};
 };

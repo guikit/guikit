@@ -20,7 +20,6 @@ namespace {
 constexpr keel::f32 kMinSplitRatio = 0.05f;
 constexpr keel::f32 kMaxSplitRatio = 0.95f;
 constexpr keel::f32 kDragStartThresholdDp = 6.0f;
-constexpr keel::f32 kOuterEdgeZoneDp = 24.0f;
 constexpr keel::f32 kFloatResizeEdgeDp = 6.0f;
 constexpr keel::f32 kFloatMinWidthDp = 160.0f;
 constexpr keel::f32 kFloatMinHeightDp = 110.0f;
@@ -34,6 +33,7 @@ constexpr keel::u8 kResizeBottom = 1u << 3;
 
 enum class DockDropKind : keel::u8 {
     None = 0,
+    KeepInPlace,
     ReorderTab,
     InsertTab,
     GroupCenter,
@@ -51,6 +51,8 @@ struct DockDropTarget {
     Rect groupRect{};
     Rect compassRect{};
     Rect caretRect{};
+    bool showCompass{false};
+    bool centerIsKeep{false};
 };
 
 struct PrevTabGeo {
@@ -60,18 +62,24 @@ struct PrevTabGeo {
     bool closable{false};
     bool floatable{true};
     bool allowDock{true};
+    bool expandable{true};
     bool active{false};
     bool disabled{false};
 };
 
 struct PrevGroupGeo {
     keel::u32 nodeIdx{kDockInvalidNode};
+    DockPanelId activePanelId{};
     Rect groupRect{};
     Rect tabBarRect{};
     Rect tabStripRect{};
     Rect overflowBtnRect{};
+    Rect floatBtnRect{};
+    Rect expandBtnRect{};
     Rect contentRect{};
     bool hasOverflow{false};
+    bool activeFloatable{true};
+    bool activeExpandable{true};
     keel::f32 scrollX{0.0f};
     keel::f32 maxScrollX{0.0f};
     keel::SmallArray<PrevTabGeo, 8> tabs;
@@ -92,11 +100,13 @@ struct PrevFloatGeo {
     Rect cardRect{};
     Rect titleRect{};
     Rect contentRect{};
+    Rect expandRect{};
     Rect redockRect{};
     Rect closeRect{};
     keel::u32 zOrder{0u};
     bool closable{false};
     bool allowDock{true};
+    bool expandable{true};
     bool minimized{false};
 };
 
@@ -138,12 +148,27 @@ struct DockAreaPersistState {
     DockPanelId hoveredFloatId{};
     bool hoveredFloatClose{false};
     bool hoveredFloatRedock{false};
+    bool hoveredFloatExpand{false};
     DockPanelId activeFloatMoveId{};
     Vec2 floatDragStartMouse{};
     Rect floatDragStartBounds{};
     DockPanelId activeFloatResizeId{};
     keel::u8 floatResizeMask{0u};
     Rect floatResizeStartBounds{};
+
+    // Tab-bar trailing action button hover state
+    keel::u32 hoveredTabFloatNode{kDockInvalidNode};
+    keel::u32 hoveredTabExpandNode{kDockInvalidNode};
+
+    // Expanded modal / fullscreen overlay state
+    Rect expandedBackdropRect{};
+    Rect expandedCardRect{};
+    Rect expandedTitleRect{};
+    Rect expandedContentRect{};
+    Rect expandedFullscreenBtnRect{};
+    Rect expandedCloseBtnRect{};
+    bool hoveredExpandedFullscreen{false};
+    bool hoveredExpandedClose{false};
 
     // Last-focused / closed panel tracking for current frame
     DockPanelId lastActivePanelId{};
@@ -196,6 +221,7 @@ struct RegisteredPanelEntry {
     bool closable{false};
     bool floatable{true};
     bool allowDock{true};
+    bool expandable{true};
     bool disabled{false};
     bool isFloating{false};
     keel::u32 floatZOrder{0u};
@@ -219,6 +245,8 @@ struct LaidOutGroup {
     Rect tabBarRect{};
     Rect tabStripRect{};
     Rect overflowBtnRect{};
+    Rect floatBtnRect{};
+    Rect expandBtnRect{};
     Rect contentRect{};
     LaidOutTab* tabs{nullptr};
     keel::usize tabCount{0u};
@@ -226,6 +254,9 @@ struct LaidOutGroup {
     bool hasOverflow{false};
     bool overflowHovered{false};
     bool overflowOpen{false};
+    bool floatBtnHovered{false};
+    bool expandBtnHovered{false};
+    bool activeExpanded{false};
 };
 
 struct LaidOutSash {
@@ -243,6 +274,7 @@ struct DockAreaPayload {
     DockAreaPersistState* state{nullptr};
     Context* ctx{nullptr};
     ICanvas* canvas{nullptr};
+    Id expandedModalId{};
     DockPanelId closedPanelThisFrame{};
     DockPanelId activePanelId{};
     bool layoutChanged{false};
@@ -261,7 +293,7 @@ struct DockAreaPayload {
     Rect innerRect{};
 };
 
-// Arena-allocated, trivially destructible payload attached to NodeType::DockFloat
+// Arena-allocated, trivially destructible payload attached to NodeType::DockFloat (and expanded modal card)
 struct DockFloatPayload {
     DockPanelId panelId{};
     UiText title{};
@@ -269,17 +301,31 @@ struct DockFloatPayload {
     UiText badge{};
     bool closable{false};
     bool allowDock{true};
+    bool expandable{false};
+    bool isExpanded{false};
+    bool expandedFullscreen{false};
     bool minimized{false};
     bool disabled{false};
     bool closeHovered{false};
     bool redockHovered{false};
+    bool expandHovered{false};
     bool dragging{false};
     UiSize size{UiSize::Md};
     keel::f32 titleBarHeight{30.0f};
     Rect titleRect{};
     Rect contentRect{};
+    Rect expandRect{};
     Rect redockRect{};
     Rect closeRect{};
+};
+
+// Arena-allocated payload attached to the expanded panel's NodeType::Modal portal
+struct ExpandedModalPayload {
+    DockAreaPersistState* state{nullptr};
+    Rect backdropRect{};
+    bool fullscreen{false};
+    keel::f32 backdropOpacity{0.58f};
+    ICanvas* canvas{nullptr};
 };
 
 [[nodiscard]] TabChromeStyle ToTabChromeStyle(TabBarStyle s) noexcept {
@@ -460,6 +506,41 @@ void DrawDockBackIcon(ICanvas& canvas, Rect r, Color col) noexcept {
     canvas.DrawRoundRect(inner, 1.0f, col, Color::Transparent(), 0.0f);
 }
 
+void DrawFloatDetachIcon(ICanvas& canvas, Rect r, Color col) noexcept {
+    // Clean geometric "detach as floating card" glyph: outer frame + lifted inner window with top bar
+    const keel::f32 stroke = keel::max(1.2f, r.w * 0.105f);
+    const Rect back(r.x, r.y + r.h * 0.28f, r.w * 0.72f, r.h * 0.72f);
+    canvas.DrawRoundRect(back, 1.5f, Color::Transparent(), col.WithAlphaF(0.60f), stroke);
+    const Rect front(r.x + r.w * 0.24f, r.y, r.w * 0.76f, r.h * 0.72f);
+    canvas.DrawRoundRect(front, 1.5f, Color::Transparent(), col, stroke);
+    const Rect titleBar(front.x + stroke, front.y + stroke, keel::max(1.0f, front.w - stroke * 2.0f), keel::max(1.5f, front.h * 0.26f));
+    canvas.DrawRoundRect(titleBar, 0.5f, col, Color::Transparent(), 0.0f);
+}
+
+void DrawExpandSquareIcon(ICanvas& canvas, Rect r, Color col) noexcept {
+    // Crisp single rounded square (Expand / Fullscreen)
+    const keel::f32 stroke = keel::max(1.25f, r.w * 0.115f);
+    const Rect sq(r.x + 0.5f, r.y + 0.5f, keel::max(4.0f, r.w - 1.0f), keel::max(4.0f, r.h - 1.0f));
+    canvas.DrawRoundRect(sq, 1.75f, Color::Transparent(), col, stroke);
+}
+
+void DrawRestoreSquaresIcon(ICanvas& canvas, Rect r, Color col) noexcept {
+    // Crisp overlapping double squares (Exit Fullscreen / Restore to modal)
+    const keel::f32 stroke = keel::max(1.2f, r.w * 0.11f);
+    const keel::f32 sz = keel::max(4.0f, r.w * 0.72f);
+    const Rect front(r.x, r.Bottom() - sz, sz, sz);
+    canvas.DrawRoundRect(front, 1.5f, Color::Transparent(), col, stroke);
+    // Top-right back window outline (top + right edges only so it never overlaps front interior)
+    const keel::f32 bx1 = r.x + r.w * 0.28f;
+    const keel::f32 by1 = r.y;
+    const keel::f32 bx2 = r.Right();
+    const keel::f32 by2 = r.y + sz;
+    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx2, by1), col, stroke);
+    canvas.DrawLine(Vec2(bx2, by1), Vec2(bx2, by2), col, stroke);
+    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx1, front.y), col, stroke);
+    canvas.DrawLine(Vec2(front.Right(), by2), Vec2(bx2, by2), col, stroke);
+}
+
 [[nodiscard]] Rect ComputeSidePreviewRect(Rect base, DockSide side, keel::f32 fraction = 0.5f) noexcept {
     switch (side) {
         case DockSide::Left:   return Rect(base.x, base.y, base.w * fraction, base.h);
@@ -471,24 +552,97 @@ void DrawDockBackIcon(ICanvas& canvas, Rect r, Color col) noexcept {
     }
 }
 
+[[nodiscard]] Rect ExpandHitRect(Rect r, keel::f32 pad) noexcept {
+    return Rect(r.x - pad, r.y - pad, r.w + pad * 2.0f, r.h + pad * 2.0f);
+}
+
 struct CompassRects {
     Rect center{};
     Rect left{};
     Rect right{};
     Rect top{};
     Rect bottom{};
+    keel::f32 gap{4.0f};
+    bool valid{false};
 };
 
-[[nodiscard]] CompassRects ComputeGroupCompassRects(Rect groupRect) noexcept {
-    const keel::f32 btn = keel::clamp(keel::min(groupRect.w, groupRect.h) * 0.16f, 20.0f, 30.0f);
-    const keel::f32 gap = 4.0f;
-    const Vec2 c = groupRect.Center();
+struct OuterEdgeRects {
+    Rect left{};
+    Rect right{};
+    Rect top{};
+    Rect bottom{};
+    bool valid{false};
+};
+
+[[nodiscard]] OuterEdgeRects ComputeOuterEdgeRects(Rect areaRect) noexcept {
+    OuterEdgeRects r{};
+    if (areaRect.w < 140.0f || areaRect.h < 120.0f) {
+        return r;
+    }
+    const keel::f32 btn = 26.0f;
+    const keel::f32 inset = 6.0f;
+    r.left   = Rect(keel::round(areaRect.x + inset), keel::round(areaRect.Center().y - btn * 0.5f), btn, btn);
+    r.right  = Rect(keel::round(areaRect.Right() - inset - btn), keel::round(areaRect.Center().y - btn * 0.5f), btn, btn);
+    r.top    = Rect(keel::round(areaRect.Center().x - btn * 0.5f), keel::round(areaRect.y + inset), btn, btn);
+    r.bottom = Rect(keel::round(areaRect.Center().x - btn * 0.5f), keel::round(areaRect.Bottom() - inset - btn), btn, btn);
+    r.valid  = true;
+    return r;
+}
+
+[[nodiscard]] CompassRects ComputeGroupCompassRects(Rect bodyRect) noexcept {
     CompassRects r{};
-    r.center = Rect(c.x - btn * 0.5f, c.y - btn * 0.5f, btn, btn);
+    if (bodyRect.w < 64.0f || bodyRect.h < 60.0f) {
+        return r;
+    }
+    const keel::f32 maxBtn = keel::min((bodyRect.w - 14.0f) / 3.0f, (bodyRect.h - 12.0f) / 3.0f);
+    const keel::f32 btn = keel::clamp(keel::floor(maxBtn), 18.0f, 30.0f);
+    const keel::f32 gap = (btn >= 24.0f) ? 4.0f : 3.0f;
+    const Vec2 c = bodyRect.Center();
+    r.center = Rect(keel::round(c.x - btn * 0.5f), keel::round(c.y - btn * 0.5f), btn, btn);
     r.left   = Rect(r.center.x - gap - btn, r.center.y, btn, btn);
     r.right  = Rect(r.center.Right() + gap, r.center.y, btn, btn);
     r.top    = Rect(r.center.x, r.center.y - gap - btn, btn, btn);
     r.bottom = Rect(r.center.x, r.center.Bottom() + gap, btn, btn);
+    r.gap    = gap;
+    r.valid  = true;
+    return r;
+}
+
+[[nodiscard]] Rect TrimCompassBoundsAgainstOuter(Rect bodyRect, const OuterEdgeRects& outer) noexcept {
+    if (!outer.valid) return bodyRect;
+    const CompassRects probe = ComputeGroupCompassRects(bodyRect);
+    if (!probe.valid) return bodyRect;
+
+    Rect r = bodyRect;
+    const keel::f32 margin = 6.0f;
+    const keel::f32 minSpan = 62.0f;
+    auto overlaps = [](Rect a, Rect b) noexcept {
+        return a.x < b.Right() && a.Right() > b.x && a.y < b.Bottom() && a.Bottom() > b.y;
+    };
+
+    // Trim only on edges where the untrimmed compass would actually collide with or crowd an outer tile
+    if (overlaps(ExpandHitRect(probe.bottom, margin), outer.bottom) && r.Bottom() > outer.bottom.y - margin) {
+        const keel::f32 trimmedH = (outer.bottom.y - margin) - r.y;
+        if (trimmedH >= minSpan) r.h = trimmedH;
+    }
+    if (overlaps(ExpandHitRect(probe.top, margin), outer.top) && r.y < outer.top.Bottom() + margin) {
+        const keel::f32 newY = outer.top.Bottom() + margin;
+        if (r.Bottom() - newY >= minSpan) {
+            r.h = r.Bottom() - newY;
+            r.y = newY;
+        }
+    }
+    if (overlaps(ExpandHitRect(probe.left, margin), outer.left) && r.x < outer.left.Right() + margin) {
+        const keel::f32 newX = outer.left.Right() + margin;
+        if (r.Right() - newX >= minSpan) {
+            r.w = r.Right() - newX;
+            r.x = newX;
+        }
+    }
+    if (overlaps(ExpandHitRect(probe.right, margin), outer.right) && r.Right() > outer.right.x - margin) {
+        const keel::f32 trimmedW = (outer.right.x - margin) - r.x;
+        if (trimmedW >= minSpan) r.w = trimmedW;
+    }
     return r;
 }
 
@@ -512,17 +666,83 @@ struct CompassRects {
             out.previewRect = area;
             return out;
         }
-        if (opts.tearable && st.dragFloatable) {
+        if (opts.tearable && st.dragFloatable && !st.dragFromFloat) {
             out.kind = DockDropKind::TearFloat;
             out.previewRect = Rect(mouse.x - 140.0f, mouse.y - 16.0f, 300.0f, 220.0f);
         }
         return out;
     }
 
-    // 1. Check tab bars first (intra-group reorder or exact inter-group tab insertion with caret)
+    const bool isSoleDockedPanel = !st.dragFromFloat &&
+        st.prevGroups.size() == 1u &&
+        st.prevGroups[0].tabs.size() <= 1u;
+
+    const OuterEdgeRects outer = (canDock && !isSoleDockedPanel)
+        ? ComputeOuterEdgeRects(area)
+        : OuterEdgeRects{};
+
+    // Locate the docked group under the cursor (used for compass overlay & explicit tile hit-testing)
+    const PrevGroupGeo* hoveredGrp = nullptr;
+    if (canDock) {
+        for (const auto& grp : st.prevGroups) {
+            if (grp.groupRect.Contains(mouse)) {
+                hoveredGrp = &grp;
+                break;
+            }
+        }
+    }
+
+    CompassRects comp{};
+    if (hoveredGrp != nullptr) {
+        const bool isOwnGroup = (!st.dragFromFloat && hoveredGrp->nodeIdx == st.dragSourceNode);
+        const bool isOwnSoleGroup = isOwnGroup && (hoveredGrp->tabs.size() <= 1u);
+        if (!isOwnSoleGroup) {
+            const Rect rawBody = (hoveredGrp->contentRect.h > 8.0f && hoveredGrp->contentRect.w > 8.0f)
+                ? hoveredGrp->contentRect
+                : hoveredGrp->groupRect;
+            const Rect compassBounds = TrimCompassBoundsAgainstOuter(rawBody, outer);
+            comp = ComputeGroupCompassRects(compassBounds);
+            out.groupRect = hoveredGrp->groupRect;
+            out.compassRect = compassBounds;
+            out.showCompass = comp.valid;
+            out.centerIsKeep = isOwnGroup;
+        }
+    }
+
+    // 1. Explicit outer perimeter tiles (1:1 visual = hitbox, front-most visual layer)
+    if (outer.valid) {
+        constexpr keel::f32 kOuterHitPad = 3.0f;
+        if (ExpandHitRect(outer.left, kOuterHitPad).Contains(mouse)) {
+            out.kind = DockDropKind::RootEdge;
+            out.side = DockSide::Left;
+            out.previewRect = ComputeSidePreviewRect(area, DockSide::Left, 0.25f);
+            return out;
+        }
+        if (ExpandHitRect(outer.right, kOuterHitPad).Contains(mouse)) {
+            out.kind = DockDropKind::RootEdge;
+            out.side = DockSide::Right;
+            out.previewRect = ComputeSidePreviewRect(area, DockSide::Right, 0.25f);
+            return out;
+        }
+        if (ExpandHitRect(outer.top, kOuterHitPad).Contains(mouse)) {
+            out.kind = DockDropKind::RootEdge;
+            out.side = DockSide::Top;
+            out.previewRect = ComputeSidePreviewRect(area, DockSide::Top, 0.25f);
+            return out;
+        }
+        if (ExpandHitRect(outer.bottom, kOuterHitPad).Contains(mouse)) {
+            out.kind = DockDropKind::RootEdge;
+            out.side = DockSide::Bottom;
+            out.previewRect = ComputeSidePreviewRect(area, DockSide::Bottom, 0.25f);
+            return out;
+        }
+    }
+
+    // 2. Tab strips (intra-group reorder or exact inter-group tab insertion with caret)
     for (const auto& grp : st.prevGroups) {
         const Rect stripR = (grp.tabStripRect.w > 0.0f) ? grp.tabStripRect : grp.tabBarRect;
         if (stripR.w > 0.0f && stripR.h > 0.0f && stripR.Contains(mouse)) {
+            out.showCompass = false;
             const bool sameGroup = (!st.dragFromFloat && grp.nodeIdx == st.dragSourceNode);
             if (sameGroup && opts.reorderable && grp.tabs.size() > 1u) {
                 keel::usize insertIdx = grp.tabs.size() - 1u;
@@ -571,112 +791,49 @@ struct CompassRects {
         }
     }
 
-    // 2. Check outer 4-edge root split strips (when dragging near DockArea's perimeter)
-    const bool isSoleDockedPanel = !st.dragFromFloat &&
-        st.prevGroups.size() == 1u &&
-        st.prevGroups[0].tabs.size() <= 1u;
+    // 3. Explicit 5-way compass tiles centered in hovered pane
+    //    (On own multi-tab group, Center = KeepInPlace so there is no awkward hole and users can cancel cleanly)
+    if (hoveredGrp != nullptr && out.showCompass) {
+        const keel::f32 hitPad = comp.gap * 0.5f;
+        DockSide chosen = DockSide::Center;
+        bool hitCompass = false;
+        if (ExpandHitRect(comp.center, hitPad).Contains(mouse)) {
+            chosen = DockSide::Center;
+            hitCompass = true;
+        } else if (ExpandHitRect(comp.left, hitPad).Contains(mouse)) {
+            chosen = DockSide::Left;
+            hitCompass = true;
+        } else if (ExpandHitRect(comp.right, hitPad).Contains(mouse)) {
+            chosen = DockSide::Right;
+            hitCompass = true;
+        } else if (ExpandHitRect(comp.top, hitPad).Contains(mouse)) {
+            chosen = DockSide::Top;
+            hitCompass = true;
+        } else if (ExpandHitRect(comp.bottom, hitPad).Contains(mouse)) {
+            chosen = DockSide::Bottom;
+            hitCompass = true;
+        }
 
-    if (canDock && !isSoleDockedPanel && area.Contains(mouse)) {
-        const keel::f32 edge = keel::min(kOuterEdgeZoneDp, keel::min(area.w, area.h) * 0.12f);
-        if (mouse.x <= area.x + edge) {
-            out.kind = DockDropKind::RootEdge;
-            out.side = DockSide::Left;
-            out.previewRect = ComputeSidePreviewRect(area, DockSide::Left, 0.25f);
-            return out;
-        }
-        if (mouse.x >= area.Right() - edge) {
-            out.kind = DockDropKind::RootEdge;
-            out.side = DockSide::Right;
-            out.previewRect = ComputeSidePreviewRect(area, DockSide::Right, 0.25f);
-            return out;
-        }
-        if (mouse.y <= area.y + edge) {
-            out.kind = DockDropKind::RootEdge;
-            out.side = DockSide::Top;
-            out.previewRect = ComputeSidePreviewRect(area, DockSide::Top, 0.25f);
-            return out;
-        }
-        if (mouse.y >= area.Bottom() - edge) {
-            out.kind = DockDropKind::RootEdge;
-            out.side = DockSide::Bottom;
-            out.previewRect = ComputeSidePreviewRect(area, DockSide::Bottom, 0.25f);
+        if (hitCompass) {
+            if (chosen == DockSide::Center && out.centerIsKeep) {
+                out.kind = DockDropKind::KeepInPlace;
+                out.targetNodeIdx = hoveredGrp->nodeIdx;
+                out.side = DockSide::Center;
+                out.previewRect = hoveredGrp->groupRect;
+                return out;
+            }
+            out.kind = (chosen == DockSide::Center) ? DockDropKind::GroupCenter : DockDropKind::GroupSide;
+            out.targetNodeIdx = hoveredGrp->nodeIdx;
+            out.side = chosen;
+            out.previewRect = ComputeSidePreviewRect(hoveredGrp->groupRect, chosen, 0.5f);
             return out;
         }
     }
 
-    // 3. Check hovered docked group's 5-way compass & quadrant zones (strictly inside contentRect so tabBar never eats Split Top)
-    if (canDock) {
-        for (const auto& grp : st.prevGroups) {
-            if (!grp.groupRect.Contains(mouse)) continue;
-            const bool isOwnSoleGroup = (!st.dragFromFloat && grp.nodeIdx == st.dragSourceNode && grp.tabs.size() <= 1u);
-            if (isOwnSoleGroup) {
-                break;
-            }
-            const Rect bodyRect = (grp.contentRect.h > 8.0f && grp.contentRect.w > 8.0f) ? grp.contentRect : grp.groupRect;
-            const CompassRects comp = ComputeGroupCompassRects(bodyRect);
-            DockSide chosen = DockSide::Center;
-            bool hitZone = false;
-            if (comp.center.Contains(mouse)) {
-                chosen = DockSide::Center;
-                hitZone = true;
-            } else if (comp.left.Contains(mouse)) {
-                chosen = DockSide::Left;
-                hitZone = true;
-            } else if (comp.right.Contains(mouse)) {
-                chosen = DockSide::Right;
-                hitZone = true;
-            } else if (comp.top.Contains(mouse)) {
-                chosen = DockSide::Top;
-                hitZone = true;
-            } else if (comp.bottom.Contains(mouse)) {
-                chosen = DockSide::Bottom;
-                hitZone = true;
-            } else if (!st.dragFromFloat) {
-                // Measure edge split zones relative to `bodyRect` (below the tab bar) so Split Top
-                // always has a full 25% responsive strip even on compact horizontal panels.
-                const keel::f32 relX = (mouse.x - bodyRect.x) / keel::max(1.0f, bodyRect.w);
-                const keel::f32 relY = (mouse.y - bodyRect.y) / keel::max(1.0f, bodyRect.h);
-                if (relX < 0.25f) {
-                    chosen = DockSide::Left;
-                    hitZone = true;
-                } else if (relX > 0.75f) {
-                    chosen = DockSide::Right;
-                    hitZone = true;
-                } else if (relY < 0.25f) {
-                    chosen = DockSide::Top;
-                    hitZone = true;
-                } else if (relY > 0.75f) {
-                    chosen = DockSide::Bottom;
-                    hitZone = true;
-                } else if (grp.nodeIdx != st.dragSourceNode) {
-                    chosen = DockSide::Center;
-                    hitZone = true;
-                }
-            }
-
-            if (hitZone) {
-                if (!st.dragFromFloat && grp.nodeIdx == st.dragSourceNode && chosen == DockSide::Center) {
-                    break;
-                }
-                out.kind = (chosen == DockSide::Center) ? DockDropKind::GroupCenter : DockDropKind::GroupSide;
-                out.targetNodeIdx = grp.nodeIdx;
-                out.side = chosen;
-                out.groupRect = grp.groupRect;
-                out.compassRect = bodyRect;
-                out.previewRect = ComputeSidePreviewRect(grp.groupRect, chosen, 0.5f);
-                return out;
-            }
-            if (st.dragFromFloat) {
-                out.groupRect = grp.groupRect;
-                out.compassRect = bodyRect;
-                return out;
-            }
-            break;
-        }
-    }
-
-    // 4. Fallback: tear into a floating card (when allowed & dragged away from source tab)
-    if (opts.tearable && st.dragFloatable && !st.dragFromFloat) {
+    // 4. Anywhere outside explicit dock targets:
+    //    - Inside DockArea -> safe cancel (DockDropKind::None, compass stays visible for targeting)
+    //    - Dragged OUTSIDE DockArea -> deliberate TearFloat into an in-window floating card
+    if (opts.tearable && st.dragFloatable && !st.dragFromFloat && !area.Contains(mouse)) {
         const keel::f32 fw = keel::clamp(area.w * 0.34f, kFloatMinWidthDp, 380.0f);
         const keel::f32 fh = keel::clamp(area.h * 0.42f, kFloatMinHeightDp, 280.0f);
         const Rect localFloat = ClampFloatBounds(
@@ -883,17 +1040,18 @@ void DrawDragOverlay(
         );
     } else if (drop.kind != DockDropKind::None && drop.previewRect.w > 2.0f && drop.previewRect.h > 2.0f) {
         const keel::f32 radius = (theme.shellStyle == ShellStyle::Floating) ? theme.shell.panelRadius : 4.0f;
-        const Color fillCol = (drop.kind == DockDropKind::TearFloat)
-            ? pal.surfaceElevated.WithAlphaF(0.32f)
-            : pal.accent.WithAlphaF(0.20f);
-        const Color borderCol = (drop.kind == DockDropKind::TearFloat)
-            ? pal.accent.WithAlphaF(0.85f)
-            : pal.accent;
-        canvas.DrawRoundRect(drop.previewRect, radius, fillCol, borderCol, 2.0f);
+        const Color fillCol = (drop.kind == DockDropKind::KeepInPlace)
+            ? pal.accent.WithAlphaF(0.08f)
+            : ((drop.kind == DockDropKind::TearFloat) ? pal.surfaceElevated.WithAlphaF(0.22f) : pal.accent.WithAlphaF(0.22f));
+        const Color borderCol = (drop.kind == DockDropKind::KeepInPlace)
+            ? pal.accent.WithAlphaF(0.55f)
+            : ((drop.kind == DockDropKind::TearFloat) ? pal.accent.WithAlphaF(0.75f) : pal.accent);
+        const keel::f32 borderW = (drop.kind == DockDropKind::KeepInPlace || drop.kind == DockDropKind::TearFloat) ? 1.5f : 2.0f;
+        canvas.DrawRoundRect(drop.previewRect, radius, fillCol, borderCol, borderW);
     }
 
     auto drawSplitIndicatorTile = [&](Rect r, DockSide side, bool active) {
-        const Color bg = active ? pal.accent : pal.surfaceElevated.WithAlphaF(0.92f);
+        const Color bg = active ? pal.accent : pal.surfaceElevated.WithAlphaF(0.95f);
         const Color bd = active ? pal.accent : pal.border;
         const Color fg = active ? pal.accentText : pal.textSecondary;
         theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
@@ -917,56 +1075,82 @@ void DrawDragOverlay(
         }
     };
 
-    // 2. 5-way docking compass centered inside the hovered group's content area
-    const Rect compassArea = (drop.compassRect.w > 0.0f) ? drop.compassRect : drop.groupRect;
-    const bool showCompass = (compassArea.w >= 86.0f && compassArea.h >= 72.0f) &&
-        (drop.kind == DockDropKind::GroupCenter || drop.kind == DockDropKind::GroupSide ||
-         (st.dragFromFloat && drop.kind == DockDropKind::None));
-    if (showCompass) {
-        const CompassRects comp = ComputeGroupCompassRects(compassArea);
-        const bool anyCompassHit = (drop.kind == DockDropKind::GroupCenter || drop.kind == DockDropKind::GroupSide);
-        drawSplitIndicatorTile(comp.center, DockSide::Center, anyCompassHit && drop.side == DockSide::Center);
-        drawSplitIndicatorTile(comp.left,   DockSide::Left,   anyCompassHit && drop.side == DockSide::Left);
-        drawSplitIndicatorTile(comp.right,  DockSide::Right,  anyCompassHit && drop.side == DockSide::Right);
-        drawSplitIndicatorTile(comp.top,    DockSide::Top,    anyCompassHit && drop.side == DockSide::Top);
-        drawSplitIndicatorTile(comp.bottom, DockSide::Bottom, anyCompassHit && drop.side == DockSide::Bottom);
+    // 2. Docking compass centered inside the hovered group's trimmed content area (ALWAYS 5 tiles, no hole)
+    if (drop.showCompass && drop.compassRect.w > 0.0f && drop.compassRect.h > 0.0f) {
+        const CompassRects comp = ComputeGroupCompassRects(drop.compassRect);
+        if (comp.valid) {
+            // Seamless cross backdrop (border silhouette pass first, then interior fill pass -> zero crossing seams!)
+            const keel::f32 backPad = 5.0f;
+            const Color backBg = pal.surface.WithAlphaF(0.84f);
+            const Color backBd = pal.borderSubtle.WithAlphaF(0.90f);
+            const Rect horizBar(
+                comp.left.x - backPad,
+                comp.left.y - backPad,
+                (comp.right.Right() - comp.left.x) + backPad * 2.0f,
+                comp.left.h + backPad * 2.0f
+            );
+            const Rect vertBar(
+                comp.top.x - backPad,
+                comp.top.y - backPad,
+                comp.top.w + backPad * 2.0f,
+                (comp.bottom.Bottom() - comp.top.y) + backPad * 2.0f
+            );
+            canvas.DrawRoundRect(ExpandHitRect(horizBar, 1.0f), 7.0f, backBd);
+            canvas.DrawRoundRect(ExpandHitRect(vertBar, 1.0f), 7.0f, backBd);
+            canvas.DrawRoundRect(horizBar, 6.0f, backBg);
+            canvas.DrawRoundRect(vertBar, 6.0f, backBg);
+
+            const bool anyCompassHit = (drop.kind == DockDropKind::GroupCenter ||
+                                        drop.kind == DockDropKind::GroupSide ||
+                                        drop.kind == DockDropKind::KeepInPlace);
+            drawSplitIndicatorTile(comp.center, DockSide::Center, anyCompassHit && drop.side == DockSide::Center);
+            drawSplitIndicatorTile(comp.left,   DockSide::Left,   anyCompassHit && drop.side == DockSide::Left);
+            drawSplitIndicatorTile(comp.right,  DockSide::Right,  anyCompassHit && drop.side == DockSide::Right);
+            drawSplitIndicatorTile(comp.top,    DockSide::Top,    anyCompassHit && drop.side == DockSide::Top);
+            drawSplitIndicatorTile(comp.bottom, DockSide::Bottom, anyCompassHit && drop.side == DockSide::Bottom);
+        }
     }
 
-    // 3. 4 outer-edge dock indicator tiles with directional split icons along DockArea's perimeter
-    if (areaRect.w >= 140.0f && areaRect.h >= 120.0f && st.dragAllowDock) {
-        const keel::f32 tileSz = 22.0f;
-        const keel::f32 inset = 6.0f;
-        drawSplitIndicatorTile(
-            Rect(areaRect.x + inset, areaRect.Center().y - tileSz * 0.5f, tileSz, tileSz),
-            DockSide::Left,
-            drop.kind == DockDropKind::RootEdge && drop.side == DockSide::Left
-        );
-        drawSplitIndicatorTile(
-            Rect(areaRect.Right() - inset - tileSz, areaRect.Center().y - tileSz * 0.5f, tileSz, tileSz),
-            DockSide::Right,
-            drop.kind == DockDropKind::RootEdge && drop.side == DockSide::Right
-        );
-        drawSplitIndicatorTile(
-            Rect(areaRect.Center().x - tileSz * 0.5f, areaRect.y + inset, tileSz, tileSz),
-            DockSide::Top,
-            drop.kind == DockDropKind::RootEdge && drop.side == DockSide::Top
-        );
-        drawSplitIndicatorTile(
-            Rect(areaRect.Center().x - tileSz * 0.5f, areaRect.Bottom() - inset - tileSz, tileSz, tileSz),
-            DockSide::Bottom,
-            drop.kind == DockDropKind::RootEdge && drop.side == DockSide::Bottom
-        );
+    // 3. 4 outer-edge dock indicator tiles (exact 1:1 geometry with EvaluateDropTarget!)
+    const bool isSoleDockedPanel = !st.dragFromFloat &&
+        st.prevGroups.size() == 1u &&
+        st.prevGroups[0].tabs.size() <= 1u;
+    if (st.dragAllowDock && !isSoleDockedPanel) {
+        const OuterEdgeRects outer = ComputeOuterEdgeRects(areaRect);
+        if (outer.valid) {
+            drawSplitIndicatorTile(outer.left,   DockSide::Left,   drop.kind == DockDropKind::RootEdge && drop.side == DockSide::Left);
+            drawSplitIndicatorTile(outer.right,  DockSide::Right,  drop.kind == DockDropKind::RootEdge && drop.side == DockSide::Right);
+            drawSplitIndicatorTile(outer.top,    DockSide::Top,    drop.kind == DockDropKind::RootEdge && drop.side == DockSide::Top);
+            drawSplitIndicatorTile(outer.bottom, DockSide::Bottom, drop.kind == DockDropKind::RootEdge && drop.side == DockSide::Bottom);
+        }
     }
 
-    // 4. Drag ghost tab capsule following pointer
+    // 4. Drag ghost tab capsule offset below-right of pointer so compass tiles under cursor remain unobstructed
     const keel::f32 fontSize = theme.ResolveFontSize(dragLabel, TextRole::LabelMedium, uiSize);
     keel::StringRef hint{};
     switch (drop.kind) {
+        case DockDropKind::KeepInPlace: hint = "Keep"; break;
         case DockDropKind::ReorderTab:  hint = "Reorder"; break;
         case DockDropKind::InsertTab:   hint = "Insert Tab"; break;
         case DockDropKind::GroupCenter: hint = "Tab"; break;
-        case DockDropKind::GroupSide:   hint = "Split"; break;
-        case DockDropKind::RootEdge:    hint = (drop.side == DockSide::Center) ? "Dock" : "Outer Split"; break;
+        case DockDropKind::GroupSide:
+            switch (drop.side) {
+                case DockSide::Left:   hint = "Split Left"; break;
+                case DockSide::Right:  hint = "Split Right"; break;
+                case DockSide::Top:    hint = "Split Top"; break;
+                case DockSide::Bottom: hint = "Split Bottom"; break;
+                default:               hint = "Split"; break;
+            }
+            break;
+        case DockDropKind::RootEdge:
+            switch (drop.side) {
+                case DockSide::Left:   hint = "Outer Left"; break;
+                case DockSide::Right:  hint = "Outer Right"; break;
+                case DockSide::Top:    hint = "Outer Top"; break;
+                case DockSide::Bottom: hint = "Outer Bottom"; break;
+                default:               hint = "Dock"; break;
+            }
+            break;
         case DockDropKind::TearFloat:   hint = "Float"; break;
         case DockDropKind::None:
         default:                        break;
@@ -982,7 +1166,15 @@ void DrawDragOverlay(
         280.0f
     );
     const keel::f32 ghostH = keel::max(26.0f, m.defaultHeight * 0.92f);
-    const Rect ghostR(keel::round(mouse.x + 12.0f), keel::round(mouse.y - ghostH * 0.5f), keel::round(ghostW), keel::round(ghostH));
+    keel::f32 ghostX = mouse.x + 16.0f;
+    keel::f32 ghostY = mouse.y + 16.0f;
+    if (areaRect.w > ghostW + 16.0f && ghostX + ghostW > areaRect.Right() - 4.0f) {
+        ghostX = mouse.x - ghostW - 14.0f;
+    }
+    if (areaRect.h > ghostH + 16.0f && ghostY + ghostH > areaRect.Bottom() - 4.0f) {
+        ghostY = mouse.y - ghostH - 14.0f;
+    }
+    const Rect ghostR(keel::round(ghostX), keel::round(ghostY), keel::round(ghostW), keel::round(ghostH));
 
     theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
         .rect = ghostR,
@@ -1024,7 +1216,8 @@ void ArrangeDockFloat(Node* node, const Rect& availableRect, const UiTheme& them
     if (!node) return;
     node->computedRect = availableRect;
     auto* fp = node->As<DockFloatPayload>();
-    const keel::f32 bw = keel::max(1.0f, node->borderWidth);
+    const bool isExpandedFs = (fp && fp->isExpanded && fp->expandedFullscreen);
+    const keel::f32 bw = isExpandedFs ? 0.0f : keel::max(1.0f, node->borderWidth);
     const keel::f32 titleH = fp ? fp->titleBarHeight : 30.0f;
     const Rect titleR(
         availableRect.x + bw,
@@ -1043,20 +1236,36 @@ void ArrangeDockFloat(Node* node, const Rect& availableRect, const UiTheme& them
         fp->titleRect = titleR;
         fp->contentRect = contentR;
         const ComponentMetrics& m = theme.GetMetrics(fp->size);
-        const keel::f32 btnSz = keel::clamp(titleH - 8.0f, 16.0f, 22.0f);
-        keel::f32 rx = titleR.Right() - 4.0f;
-        if (fp->closable) {
+        const keel::f32 btnSz = keel::clamp(titleH - 8.0f, 18.0f, 24.0f);
+        keel::f32 rx = titleR.Right() - 6.0f;
+        if (fp->isExpanded) {
+            // Expanded modal header: [Fullscreen/Restore □/❐] [Return to dock ×]
             rx -= btnSz;
             fp->closeRect = Rect(rx, titleR.Center().y - btnSz * 0.5f, btnSz, btnSz);
-            rx -= 3.0f;
-        } else {
-            fp->closeRect = Rect{};
-        }
-        if (fp->allowDock) {
-            rx -= btnSz;
-            fp->redockRect = Rect(rx, titleR.Center().y - btnSz * 0.5f, btnSz, btnSz);
-        } else {
+            rx -= 4.0f + btnSz;
+            fp->expandRect = Rect(rx, titleR.Center().y - btnSz * 0.5f, btnSz, btnSz);
             fp->redockRect = Rect{};
+        } else {
+            if (fp->closable) {
+                rx -= btnSz;
+                fp->closeRect = Rect(rx, titleR.Center().y - btnSz * 0.5f, btnSz, btnSz);
+                rx -= 3.0f;
+            } else {
+                fp->closeRect = Rect{};
+            }
+            if (fp->allowDock) {
+                rx -= btnSz;
+                fp->redockRect = Rect(rx, titleR.Center().y - btnSz * 0.5f, btnSz, btnSz);
+                rx -= 3.0f;
+            } else {
+                fp->redockRect = Rect{};
+            }
+            if (fp->expandable) {
+                rx -= btnSz;
+                fp->expandRect = Rect(rx, titleR.Center().y - btnSz * 0.5f, btnSz, btnSz);
+            } else {
+                fp->expandRect = Rect{};
+            }
         }
         (void)m;
     }
@@ -1127,14 +1336,31 @@ void RenderDockFloat(const Node* node, ICanvas& canvas, const UiTheme& theme) no
     const Rect tr = fp->titleRect;
     if (tr.w <= 2.0f || tr.h <= 2.0f) return;
 
-    // Subtle title bar fill & bottom divider
-    canvas.DrawRect(tr, pal.surfaceElevated.WithAlphaF(0.75f));
+    // Subtle title bar fill & bottom divider (clipped cleanly to card's rounded corners when present)
+    const bool clipTitleRound = (!fp->expandedFullscreen && node->cornerRadius > 0.5f && canvas.SupportsRoundedClip());
+    if (clipTitleRound) {
+        const keel::f32 bw = keel::max(1.0f, node->borderWidth);
+        canvas.PushRoundedClip(
+            Rect(
+                node->computedRect.x + bw,
+                node->computedRect.y + bw,
+                keel::max(0.0f, node->computedRect.w - bw * 2.0f),
+                keel::max(0.0f, node->computedRect.h - bw * 2.0f)
+            ),
+            keel::max(0.0f, node->cornerRadius - bw)
+        );
+    }
+    canvas.DrawRect(tr, pal.surfaceElevated.WithAlphaF(fp->isExpanded ? 0.92f : 0.75f));
+    if (clipTitleRound) {
+        canvas.PopClip();
+    }
     theme.Painter().DrawDivider(canvas, theme, Vec2(tr.x, tr.Bottom()), Vec2(tr.Right(), tr.Bottom()), pal.borderSubtle, 1.0f);
 
-    keel::f32 cx = tr.x + 8.0f;
-    const keel::f32 rightLimit = (fp->redockRect.w > 0.0f)
-        ? (fp->redockRect.x - 6.0f)
-        : ((fp->closeRect.w > 0.0f) ? (fp->closeRect.x - 6.0f) : (tr.Right() - 8.0f));
+    keel::f32 cx = tr.x + (fp->isExpanded ? 12.0f : 8.0f);
+    keel::f32 rightLimit = tr.Right() - 8.0f;
+    if (fp->expandRect.w > 0.0f) rightLimit = keel::min(rightLimit, fp->expandRect.x - 6.0f);
+    if (fp->redockRect.w > 0.0f) rightLimit = keel::min(rightLimit, fp->redockRect.x - 6.0f);
+    if (fp->closeRect.w > 0.0f)  rightLimit = keel::min(rightLimit, fp->closeRect.x - 6.0f);
 
     if (fp->icon.IsValid() && cx + m.iconSize < rightLimit) {
         const keel::f32 icSz = keel::min(m.iconSize, tr.h * 0.58f);
@@ -1144,7 +1370,10 @@ void RenderDockFloat(const Node* node, ICanvas& canvas, const UiTheme& theme) no
 
     const UiText title = !fp->title.empty() ? fp->title : UiText(fp->panelId.as_ref());
     const keel::f32 fontSize = theme.ResolveFontSize(title, TextRole::LabelLarge, fp->size);
-    const keel::f32 availW = keel::max(0.0f, rightLimit - cx);
+    const keel::f32 badgeFont = theme.ResolveFontSize(fp->badge, m.fontSize * 0.76f);
+    const keel::f32 badgeW = fp->badge.empty() ? 0.0f : (TextUtil::MeasureWidth(fp->badge, badgeFont, &canvas) + 12.0f);
+    const bool showBadge = fp->isExpanded && !fp->badge.empty() && (rightLimit - cx > badgeW + 60.0f);
+    const keel::f32 availW = keel::max(0.0f, rightLimit - cx - (showBadge ? (badgeW + 8.0f) : 0.0f));
     if (availW > 8.0f) {
         const keel::FixedString<256> trunc = TextUtil::TruncateWithEllipsis(title.text, availW, fontSize, &canvas);
         theme.Painter().DrawControlText(
@@ -1158,10 +1387,39 @@ void RenderDockFloat(const Node* node, ICanvas& canvas, const UiTheme& theme) no
             0.0f,
             0.5f
         );
+        cx += keel::min(availW, canvas.MeasureText(trunc.as_ref(), fontSize).x);
     }
 
-    // Redock button
-    if (fp->allowDock && fp->redockRect.w > 4.0f) {
+    if (showBadge) {
+        cx += 8.0f;
+        const keel::f32 badgeH = badgeFont + 5.0f;
+        const Rect badgeR(cx, tr.Center().y - badgeH * 0.5f, badgeW, badgeH);
+        theme.Painter().DrawBadge(canvas, theme, badgeR, pal.accent.WithAlphaF(0.20f), Color::Transparent(), 0.0f, 4.0f);
+        canvas.DrawTextBox(fp->badge.text, badgeR, badgeFont, theme.EnsureReadableInk(pal.accent, pal.surfaceElevated), 0.5f, 0.5f);
+    }
+
+    // Expand / Fullscreen / Restore button
+    if (fp->expandRect.w > 4.0f) {
+        if (fp->expandHovered && !fp->disabled) {
+            canvas.DrawRoundRect(fp->expandRect, keel::min(4.0f, m.cornerRadius), pal.surfaceHover);
+        }
+        const keel::f32 icSz = keel::max(9.0f, fp->expandRect.w * 0.54f);
+        const Rect ir(
+            fp->expandRect.Center().x - icSz * 0.5f,
+            fp->expandRect.Center().y - icSz * 0.5f,
+            icSz,
+            icSz
+        );
+        const Color icCol = fp->expandHovered ? pal.textPrimary : pal.textSecondary;
+        if (fp->isExpanded && fp->expandedFullscreen) {
+            DrawRestoreSquaresIcon(canvas, ir, icCol);
+        } else {
+            DrawExpandSquareIcon(canvas, ir, icCol);
+        }
+    }
+
+    // Redock button (normal floating cards)
+    if (!fp->isExpanded && fp->allowDock && fp->redockRect.w > 4.0f) {
         if (fp->redockHovered && !fp->disabled) {
             canvas.DrawRoundRect(fp->redockRect, keel::min(4.0f, m.cornerRadius), pal.surfaceHover);
         }
@@ -1175,12 +1433,12 @@ void RenderDockFloat(const Node* node, ICanvas& canvas, const UiTheme& theme) no
         DrawDockBackIcon(canvas, ir, fp->redockHovered ? pal.accent : pal.textSecondary);
     }
 
-    // Close button
-    if (fp->closable && fp->closeRect.w > 4.0f) {
+    // Close button (or Return-to-dock × on expanded modal)
+    if ((fp->isExpanded || fp->closable) && fp->closeRect.w > 4.0f) {
         if (fp->closeHovered && !fp->disabled) {
             canvas.DrawRoundRect(fp->closeRect, keel::min(4.0f, m.cornerRadius), pal.surfaceHover);
         }
-        const keel::f32 icSz = keel::max(9.0f, fp->closeRect.w * 0.58f);
+        const keel::f32 icSz = keel::max(9.0f, fp->closeRect.w * 0.54f);
         const Rect ir(
             fp->closeRect.Center().x - icSz * 0.5f,
             fp->closeRect.Center().y - icSz * 0.5f,
@@ -1190,13 +1448,85 @@ void RenderDockFloat(const Node* node, ICanvas& canvas, const UiTheme& theme) no
         Icon::Close().Draw(canvas, ir, fp->closeHovered ? pal.textPrimary : pal.textSecondary);
     }
 
-    // Subtle bottom-right resize grip indicator
-    if (!fp->minimized && fp->contentRect.w > 24.0f && fp->contentRect.h > 24.0f) {
+    // Subtle bottom-right resize grip indicator (normal floating cards only)
+    if (!fp->isExpanded && !fp->minimized && fp->contentRect.w > 24.0f && fp->contentRect.h > 24.0f) {
         const Color gripCol = pal.textMuted.WithAlphaF(0.45f);
         const keel::f32 rx = node->computedRect.Right() - 4.0f;
         const keel::f32 ry = node->computedRect.Bottom() - 4.0f;
         canvas.DrawLine(Vec2(rx - 7.0f, ry), Vec2(rx, ry - 7.0f), gripCol, 1.25f);
         canvas.DrawLine(Vec2(rx - 3.5f, ry), Vec2(rx, ry - 3.5f), gripCol, 1.25f);
+    }
+}
+
+// --- Expanded Modal Portal hooks (NodeType::Modal) ---
+
+Rect GetExpandedModalBackdropRect(const Node* node, const UiTheme& /*theme*/) noexcept {
+    if (!node) return Rect{};
+    if (const auto* ep = node->As<ExpandedModalPayload>()) {
+        return ep->backdropRect;
+    }
+    return node->computedRect;
+}
+
+void ArrangeExpandedModal(Node* node, const Rect& availableRect, const UiTheme& theme) noexcept {
+    if (!node) return;
+    const auto* ep = node->As<ExpandedModalPayload>();
+    const Rect backdrop = (ep && ep->backdropRect.w > 1.0f && ep->backdropRect.h > 1.0f)
+        ? ep->backdropRect
+        : availableRect;
+    node->computedRect = backdrop;
+
+    const bool fs = ep ? ep->fullscreen : false;
+    Rect cardRect = backdrop;
+    if (!fs) {
+        const keel::f32 marginX = keel::min(48.0f, backdrop.w * 0.08f);
+        const keel::f32 marginY = keel::min(48.0f, backdrop.h * 0.08f);
+        const keel::f32 maxW = keel::max(120.0f, backdrop.w - marginX * 2.0f);
+        const keel::f32 maxH = keel::max(100.0f, backdrop.h - marginY * 2.0f);
+        const keel::f32 w = keel::round(keel::clamp(backdrop.w * 0.84f, keel::min(360.0f, maxW), maxW));
+        const keel::f32 h = keel::round(keel::clamp(backdrop.h * 0.84f, keel::min(260.0f, maxH), maxH));
+        cardRect = Rect(
+            keel::round(backdrop.x + (backdrop.w - w) * 0.5f),
+            keel::round(backdrop.y + (backdrop.h - h) * 0.5f),
+            w,
+            h
+        );
+    }
+
+    DockAreaPersistState* st = ep ? ep->state : nullptr;
+    if (st) {
+        st->expandedBackdropRect = backdrop;
+        st->expandedCardRect = cardRect;
+        st->expandedTitleRect = Rect{};
+        st->expandedContentRect = cardRect;
+        st->expandedFullscreenBtnRect = Rect{};
+        st->expandedCloseBtnRect = Rect{};
+    }
+
+    for (Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
+        if (c->IsOutOfFlow()) continue;
+        Solver::Arrange(c, cardRect, theme, ep ? ep->canvas : nullptr);
+        if (st) {
+            if (const auto* fp = c->As<DockFloatPayload>()) {
+                st->expandedTitleRect = fp->titleRect;
+                st->expandedContentRect = fp->contentRect;
+                st->expandedFullscreenBtnRect = fp->expandRect;
+                st->expandedCloseBtnRect = fp->closeRect;
+            }
+        }
+    }
+}
+
+void RenderExpandedModal(const Node* node, ICanvas& canvas, const UiTheme& /*theme*/) noexcept {
+    const auto* ep = node ? node->As<ExpandedModalPayload>() : nullptr;
+    if (!ep || ep->fullscreen) return;
+    if (ep->backdropRect.w <= 0.0f || ep->backdropRect.h <= 0.0f) return;
+    const keel::f32 alpha = keel::clamp(ep->backdropOpacity, 0.0f, 0.95f);
+    if (alpha > 0.001f) {
+        canvas.DrawRect(
+            ep->backdropRect,
+            Color(4, 7, 14, keel::as<keel::u8>(keel::clamp(keel::round_i32(alpha * 255.0f), 0, 255)))
+        );
     }
 }
 
@@ -1410,21 +1740,47 @@ void ArrangeDockArea(
         );
 
         const keel::usize tabCount = dn.panelIds.size();
+        const DockPanelId activeId = (dn.activeTab < tabCount)
+            ? dn.panelIds[dn.activeTab]
+            : (tabCount > 0u ? dn.panelIds[0] : DockPanelId{});
+        const RegisteredPanelEntry* activeMeta = !activeId.empty()
+            ? FindRegisteredPanel(*payload, activeId.as_ref())
+            : nullptr;
+        const bool activeFloatable = !activeMeta || activeMeta->floatable;
+        const bool activeExpandable = !activeMeta || activeMeta->expandable;
+        const bool activeDisabledTab = (activeMeta && activeMeta->disabled);
+        const bool activeIsExpanded = !activeId.empty() && opts.expandable && layout.IsPanelExpanded(activeId.as_ref());
+
         LaidOutTab* laidTabs = (tabCount > 0u) ? arena.alloc_array<LaidOutTab>(tabCount) : nullptr;
         PrevGroupGeo prevGrp{};
         prevGrp.nodeIdx = idx;
+        prevGrp.activePanelId = activeId;
         prevGrp.groupRect = groupRect;
         prevGrp.tabBarRect = tabBarRect;
         prevGrp.tabStripRect = tabBarRect;
         prevGrp.contentRect = contentRect;
+        prevGrp.activeFloatable = activeFloatable && !activeDisabledTab;
+        prevGrp.activeExpandable = activeExpandable && !activeDisabledTab;
 
         Rect tabStripRect = tabBarRect;
         Rect overflowBtnRect{};
+        Rect floatBtnRect{};
+        Rect expandBtnRect{};
         bool hasOverflow = false;
         keel::f32 scrollX = 0.0f;
         keel::f32 maxScrollX = 0.0f;
 
         if (showBar && tabCount > 0u && tabBarRect.w > 4.0f) {
+            const bool wantExpandBtn = opts.expandable && prevGrp.activeExpandable;
+            const bool wantFloatBtn = opts.tearable && prevGrp.activeFloatable;
+            const keel::f32 actBtnSz = keel::clamp(tabBarRect.h - 8.0f, 16.0f, 20.0f);
+            const keel::f32 actGap = 2.0f;
+            keel::f32 actionsW = 0.0f;
+            if (wantExpandBtn) actionsW += actBtnSz + 3.0f;
+            if (wantFloatBtn)  actionsW += actBtnSz + (wantExpandBtn ? actGap : 3.0f);
+            const bool showActionBtns = (actionsW > 0.0f) && (tabBarRect.w >= 170.0f);
+            const keel::f32 rightActionReserve = showActionBtns ? (actionsW + 4.0f) : 0.0f;
+
             const keel::f32 tabGap = (opts.tabStyle == TabBarStyle::Card || opts.tabStyle == TabBarStyle::Folder) ? 2.0f : 3.0f;
             keel::SmallArray<keel::f32, 16> naturalWidths;
             keel::SmallArray<keel::f32, 16> minWidths;
@@ -1448,12 +1804,14 @@ void ArrangeDockArea(
                 sumMin += mw;
             }
             const keel::f32 totalGaps = (tabCount > 1u) ? keel::as<keel::f32>(tabCount - 1u) * tabGap : 0.0f;
-            const keel::f32 availFull = keel::max(0.0f, tabBarRect.w - 4.0f - totalGaps);
+            const keel::f32 availFull = keel::max(0.0f, tabBarRect.w - rightActionReserve - 4.0f - totalGaps);
 
             keel::SmallArray<keel::f32, 16> finalWidths;
+            bool placeActionBtns = showActionBtns;
             if (sumNatural <= availFull) {
                 for (keel::usize ti = 0; ti < tabCount; ++ti) finalWidths.push_back(keel::round(naturalWidths[ti]));
                 SetTabScrollX(st, idx, 0.0f);
+                tabStripRect = Rect(tabBarRect.x, tabBarRect.y, keel::max(0.0f, tabBarRect.w - rightActionReserve), tabBarRect.h);
             } else if (sumMin <= availFull || tabCount == 1u) {
                 const keel::f32 extraAvail = keel::max(0.0f, availFull - sumMin);
                 const keel::f32 extraNeed = keel::max(1.0f, sumNatural - sumMin);
@@ -1465,11 +1823,20 @@ void ArrangeDockArea(
                     finalWidths.push_back(keel::round(w));
                 }
                 SetTabScrollX(st, idx, 0.0f);
+                tabStripRect = Rect(tabBarRect.x, tabBarRect.y, keel::max(0.0f, tabBarRect.w - rightActionReserve), tabBarRect.h);
             } else {
                 // Overflow mode: keep tabs readable, enable wheel scrolling + trailing overflow dropdown button
+                // On narrow overflowing panes (< 280dp), hide Float/Expand buttons so '▼' sits cleanly at the right edge
                 hasOverflow = true;
+                placeActionBtns = showActionBtns && (tabBarRect.w >= 280.0f);
+                const keel::f32 ovRightReserve = placeActionBtns ? (actionsW + 4.0f) : 0.0f;
                 const keel::f32 btnW = keel::min(kOverflowBtnWidthDp, tabBarRect.w * 0.35f);
-                overflowBtnRect = Rect(tabBarRect.Right() - btnW, tabBarRect.y + 1.0f, btnW, keel::max(0.0f, tabBarRect.h - 2.0f));
+                overflowBtnRect = Rect(
+                    tabBarRect.Right() - ovRightReserve - btnW,
+                    tabBarRect.y + 1.0f,
+                    btnW,
+                    keel::max(0.0f, tabBarRect.h - 2.0f)
+                );
                 tabStripRect = Rect(tabBarRect.x, tabBarRect.y, keel::max(0.0f, overflowBtnRect.x - tabBarRect.x - 1.0f), tabBarRect.h);
 
                 keel::f32 totalContentW = 0.0f;
@@ -1500,6 +1867,20 @@ void ArrangeDockArea(
                 SetTabScrollX(st, idx, scrollX);
             }
 
+            if (placeActionBtns) {
+                keel::f32 rx = tabBarRect.Right() - 4.0f;
+                const keel::f32 by = keel::round(tabBarRect.Center().y - actBtnSz * 0.5f);
+                if (wantExpandBtn) {
+                    rx -= actBtnSz;
+                    expandBtnRect = Rect(keel::round(rx), by, actBtnSz, actBtnSz);
+                    rx -= actGap;
+                }
+                if (wantFloatBtn) {
+                    rx -= actBtnSz;
+                    floatBtnRect = Rect(keel::round(rx), by, actBtnSz, actBtnSz);
+                }
+            }
+
             keel::f32 tx = tabStripRect.x + 2.0f - scrollX;
             for (keel::usize ti = 0; ti < tabCount; ++ti) {
                 const DockPanelId& pid = dn.panelIds[ti];
@@ -1527,6 +1908,7 @@ void ArrangeDockArea(
                     .closable = closable,
                     .floatable = !meta || meta->floatable,
                     .allowDock = !meta || meta->allowDock,
+                    .expandable = !meta || meta->expandable,
                     .active = isActive,
                     .disabled = (meta && meta->disabled)
                 });
@@ -1536,6 +1918,8 @@ void ArrangeDockArea(
 
         prevGrp.tabStripRect = tabStripRect;
         prevGrp.overflowBtnRect = overflowBtnRect;
+        prevGrp.floatBtnRect = floatBtnRect;
+        prevGrp.expandBtnRect = expandBtnRect;
         prevGrp.hasOverflow = hasOverflow;
         prevGrp.scrollX = scrollX;
         prevGrp.maxScrollX = maxScrollX;
@@ -1547,24 +1931,26 @@ void ArrangeDockArea(
                 .tabBarRect = tabBarRect,
                 .tabStripRect = tabStripRect,
                 .overflowBtnRect = overflowBtnRect,
+                .floatBtnRect = floatBtnRect,
+                .expandBtnRect = expandBtnRect,
                 .contentRect = contentRect,
                 .tabs = laidTabs,
                 .tabCount = tabCount,
                 .showTabBar = showBar,
                 .hasOverflow = hasOverflow,
                 .overflowHovered = (st.hoveredOverflowNode == idx),
-                .overflowOpen = (st.openOverflowNode == idx)
+                .overflowOpen = (st.openOverflowNode == idx),
+                .floatBtnHovered = (st.hoveredTabFloatNode == idx),
+                .expandBtnHovered = (st.hoveredTabExpandNode == idx),
+                .activeExpanded = activeIsExpanded
             };
         }
         st.prevGroups.push_back(keel::move(prevGrp));
 
-        // Arrange the active panel's content node inside contentRect
-        if (dn.activeTab < dn.panelIds.size()) {
-            const RegisteredPanelEntry* activeMeta = FindRegisteredPanel(*payload, dn.panelIds[dn.activeTab].as_ref());
-            if (activeMeta && activeMeta->contentNode && !activeMeta->isFloating) {
-                activeMeta->contentNode->computedRect = contentRect;
-                Solver::Arrange(activeMeta->contentNode, contentRect, theme, payload->canvas);
-            }
+        // Arrange the active panel's content node inside contentRect (unless currently expanded in modal overlay)
+        if (!activeIsExpanded && activeMeta && activeMeta->contentNode && !activeMeta->isFloating) {
+            activeMeta->contentNode->computedRect = contentRect;
+            Solver::Arrange(activeMeta->contentNode, contentRect, theme, payload->canvas);
         }
     };
 
@@ -1576,6 +1962,9 @@ void ArrangeDockArea(
     // Arrange floating cards and snapshot their geometry
     const keel::f32 floatTitleH = keel::max(28.0f, m.defaultHeight);
     for (auto& fc : layout.MutableFloatingCards()) {
+        if (opts.expandable && layout.IsPanelExpanded(fc.panelId.as_ref())) {
+            continue;
+        }
         fc.bounds = ClampFloatBounds(fc.bounds, innerRect);
         const keel::f32 cardH = fc.minimized ? (floatTitleH + 2.0f) : fc.bounds.h;
         const Rect cardRect(
@@ -1585,7 +1974,7 @@ void ArrangeDockArea(
             keel::round(cardH)
         );
         const RegisteredPanelEntry* meta = FindRegisteredPanel(*payload, fc.panelId.as_ref());
-        Rect titleR{}, contentR{}, redockR{}, closeR{};
+        Rect titleR{}, contentR{}, expandR{}, redockR{}, closeR{};
         if (meta && meta->contentNode && meta->isFloating) {
             if (auto* fp = meta->contentNode->As<DockFloatPayload>()) {
                 fp->titleBarHeight = floatTitleH;
@@ -1594,6 +1983,7 @@ void ArrangeDockArea(
             if (const auto* fp = meta->contentNode->As<DockFloatPayload>()) {
                 titleR = fp->titleRect;
                 contentR = fp->contentRect;
+                expandR = fp->expandRect;
                 redockR = fp->redockRect;
                 closeR = fp->closeRect;
             }
@@ -1606,11 +1996,13 @@ void ArrangeDockArea(
             .cardRect = cardRect,
             .titleRect = titleR,
             .contentRect = contentR,
+            .expandRect = expandR,
             .redockRect = redockR,
             .closeRect = closeR,
             .zOrder = fc.zOrder,
             .closable = (meta && meta->closable),
             .allowDock = !meta || meta->allowDock,
+            .expandable = !meta || meta->expandable,
             .minimized = fc.minimized
         });
     }
@@ -1717,7 +2109,40 @@ void RenderDockArea(
                     node->disabled ? pal.textDisabled : ((grp.overflowHovered || grp.overflowOpen) ? pal.textPrimary : pal.textSecondary)
                 );
             }
+
+            if (grp.floatBtnRect.w > 4.0f) {
+                const Rect fb = grp.floatBtnRect;
+                if (grp.floatBtnHovered && !node->disabled) {
+                    canvas.DrawRoundRect(fb, 4.0f, pal.surfaceHover);
+                }
+                const keel::f32 icSz = keel::clamp(fb.w * 0.58f, 9.0f, 12.0f);
+                const Rect icR(fb.Center().x - icSz * 0.5f, fb.Center().y - icSz * 0.5f, icSz, icSz);
+                DrawFloatDetachIcon(
+                    canvas,
+                    icR,
+                    node->disabled ? pal.textDisabled : (grp.floatBtnHovered ? pal.textPrimary : pal.textSecondary)
+                );
+            }
+
+            if (grp.expandBtnRect.w > 4.0f) {
+                const Rect eb = grp.expandBtnRect;
+                if (grp.expandBtnHovered && !node->disabled) {
+                    canvas.DrawRoundRect(eb, 4.0f, pal.surfaceHover);
+                }
+                const keel::f32 icSz = keel::clamp(eb.w * 0.54f, 9.0f, 12.0f);
+                const Rect icR(eb.Center().x - icSz * 0.5f, eb.Center().y - icSz * 0.5f, icSz, icSz);
+                DrawExpandSquareIcon(
+                    canvas,
+                    icR,
+                    node->disabled ? pal.textDisabled : (grp.expandBtnHovered ? pal.textPrimary : pal.textSecondary)
+                );
+            }
             canvas.PopClip();
+        }
+
+        if (grp.activeExpanded && grp.contentRect.w > 40.0f && grp.contentRect.h > 24.0f) {
+            const keel::f32 hintFont = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, opts.size);
+            canvas.DrawTextBox("Expanded in overlay", grp.contentRect, hintFont, pal.textMuted, 0.5f, 0.5f);
         }
 
         theme.Painter().DrawSurfaceFrame(canvas, theme, surfParams);
@@ -2039,6 +2464,7 @@ void ApplyCommonDropTarget(
     Context& ctx,
     DockLayout& layout,
     DockAreaPersistState& st,
+    const DockAreaOptions& opts,
     Id idInteract,
     Vec2 mouse,
     DockInteractOutcome& out
@@ -2080,6 +2506,20 @@ void ApplyCommonDropTarget(
                 out.structuralChange = true;
                 ctx.ConsumeMouseClick();
                 ctx.InvalidateAll();
+            }
+            return true;
+        }
+
+        if (opts.expandable && fg.expandable && fg.expandRect.Contains(mouse)) {
+            st.hoveredFloatExpand = true;
+            ctx.SetCursor(CursorType::Pointer);
+            ctx.SetTooltip("Expand panel", fg.expandRect);
+            if (ctx.IsMouseClicked()) {
+                if (layout.ExpandPanel(fg.panelId.as_ref(), false)) {
+                    out.layoutChanged = true;
+                    ctx.InvalidateAll();
+                }
+                ctx.ConsumeMouseClick();
             }
             return true;
         }
@@ -2162,7 +2602,7 @@ void UpdateIdleHitTest(
     DockInteractOutcome& out
 ) {
     // E1. Floating cards in descending zOrder
-    if (HitTestIdleFloatingCards(ctx, layout, st, idInteract, mouse, out)) {
+    if (HitTestIdleFloatingCards(ctx, layout, st, opts, idInteract, mouse, out)) {
         return;
     }
 
@@ -2232,6 +2672,46 @@ void UpdateIdleHitTest(
             return;
         }
 
+        // Trailing Expand button (Modal / Fullscreen overlay)
+        if (opts.expandable && grp.activeExpandable && !grp.activePanelId.empty() && grp.expandBtnRect.Contains(mouse)) {
+            st.hoveredTabExpandNode = grp.nodeIdx;
+            ctx.SetCursor(CursorType::Pointer);
+            ctx.SetTooltip("Expand panel (double-click tab)", grp.expandBtnRect);
+            if (ctx.IsMouseClicked()) {
+                if (layout.ExpandPanel(grp.activePanelId.as_ref(), false)) {
+                    st.lastActivePanelId = grp.activePanelId;
+                    out.layoutChanged = true;
+                    ctx.InvalidateAll();
+                }
+                ctx.ConsumeMouseClick();
+            }
+            return;
+        }
+
+        // Trailing Float / Undock button (deliberate detach as floating card)
+        if (opts.tearable && grp.activeFloatable && !grp.activePanelId.empty() && grp.floatBtnRect.Contains(mouse)) {
+            st.hoveredTabFloatNode = grp.nodeIdx;
+            ctx.SetCursor(CursorType::Pointer);
+            ctx.SetTooltip("Detach as floating card", grp.floatBtnRect);
+            if (ctx.IsMouseClicked()) {
+                const Rect area = st.prevInnerRect;
+                const keel::f32 fw = keel::clamp(area.w * 0.36f, kFloatMinWidthDp, 400.0f);
+                const keel::f32 fh = keel::clamp(area.h * 0.46f, kFloatMinHeightDp, 320.0f);
+                const Rect localFloat = ClampFloatBounds(
+                    Rect((area.w - fw) * 0.5f, keel::max(24.0f, (area.h - fh) * 0.35f), fw, fh),
+                    area
+                );
+                if (layout.FloatPanel(grp.activePanelId.as_ref(), localFloat)) {
+                    st.lastActivePanelId = grp.activePanelId;
+                    out.layoutChanged = true;
+                    out.structuralChange = true;
+                    ctx.InvalidateAll();
+                }
+                ctx.ConsumeMouseClick();
+            }
+            return;
+        }
+
         if (!grp.tabStripRect.Contains(mouse)) return;
 
         for (keel::usize ti = 0; ti < grp.tabs.size(); ++ti) {
@@ -2258,6 +2738,16 @@ void UpdateIdleHitTest(
                 out.structuralChange = true;
                 ctx.ConsumeMouseClick();
                 ctx.InvalidateAll();
+            } else if (opts.expandable && t.expandable && ctx.IsMouseDoubleClicked()) {
+                // Double-click on tab opens the panel in Expanded Modal overlay (without starting a drag)
+                st.tabDragPending = false;
+                st.tabDragging = false;
+                if (layout.ExpandPanel(t.panelId.as_ref(), false)) {
+                    st.lastActivePanelId = t.panelId;
+                    out.layoutChanged = true;
+                    ctx.InvalidateAll();
+                }
+                ctx.ConsumeMouseClick();
             } else if (ctx.IsMouseClicked()) {
                 if (!t.active) {
                     layout.SetActivePanel(t.panelId.as_ref());
@@ -2376,6 +2866,90 @@ Node* CreateDockScrollAreaNode(
     return scrollNode;
 }
 
+void UpdateExpandedModalInteraction(
+    Context& ctx,
+    DockLayout& layout,
+    DockAreaPersistState& st,
+    const DockAreaOptions& opts,
+    Id idExpandedModal,
+    DockInteractOutcome& out
+) {
+    const Vec2 mouse = ctx.GetMousePos();
+    const bool popupOpen = ctx.GetOpenPopupId().IsValid() || ctx.WasPopupDismissedThisFrame();
+    const bool isTopModal = ctx.IsTopModal(idExpandedModal);
+    const bool hasPopoverAbove = ctx.HasPrevFramePopoverOver(idExpandedModal);
+
+    if (opts.expandCloseOnEscape && !popupOpen && isTopModal && !hasPopoverAbove && ctx.ConsumeKey(Key::Escape)) {
+        layout.RestoreExpanded();
+        ctx.ClearModalBlock(idExpandedModal);
+        out.layoutChanged = true;
+        ctx.InvalidateAll();
+        return;
+    }
+
+    if (popupOpen || !isTopModal) {
+        return;
+    }
+
+    auto hitScope = ctx.ScopedOverlayHitCheck(idExpandedModal, OverlayLayer::Portal);
+    const bool occluded = ctx.IsOverlayOccluded(idExpandedModal, mouse, OverlayLayer::Portal);
+    if (occluded) {
+        return;
+    }
+
+    // Header Close / Return-to-dock button ('×')
+    if (st.expandedCloseBtnRect.w > 1.0f && st.expandedCloseBtnRect.Contains(mouse)) {
+        st.hoveredExpandedClose = true;
+        ctx.SetCursor(CursorType::Pointer);
+        ctx.SetTooltip("Return to dock", st.expandedCloseBtnRect);
+        if (ctx.IsMouseClicked()) {
+            layout.RestoreExpanded();
+            ctx.ClearModalBlock(idExpandedModal);
+            ctx.ConsumeMouseClick();
+            out.layoutChanged = true;
+            ctx.InvalidateAll();
+        }
+        return;
+    }
+
+    // Header Fullscreen / Restore button ('□' / '❐')
+    if (st.expandedFullscreenBtnRect.w > 1.0f && st.expandedFullscreenBtnRect.Contains(mouse)) {
+        st.hoveredExpandedFullscreen = true;
+        ctx.SetCursor(CursorType::Pointer);
+        ctx.SetTooltip(layout.IsExpandedFullscreen() ? "Exit fullscreen" : "Fullscreen", st.expandedFullscreenBtnRect);
+        if (ctx.IsMouseClicked()) {
+            layout.ToggleExpandedFullscreen();
+            ctx.ConsumeMouseClick();
+            out.layoutChanged = true;
+            ctx.InvalidateAll();
+        }
+        return;
+    }
+
+    // Double-click on expanded modal header toggles Modal (~84%) <-> Fullscreen (100%)
+    if (st.expandedTitleRect.w > 1.0f && st.expandedTitleRect.Contains(mouse)) {
+        if (ctx.IsMouseDoubleClicked()) {
+            layout.ToggleExpandedFullscreen();
+            ctx.ConsumeMouseClick();
+            out.layoutChanged = true;
+            ctx.InvalidateAll();
+        }
+        return;
+    }
+
+    // Click on dimmed backdrop outside modal card restores panel to dock (when enabled)
+    if (!layout.IsExpandedFullscreen() && opts.expandCloseOnBackdrop && ctx.IsMouseClicked()) {
+        const bool hasPrevCard = (st.expandedCardRect.w > 1.0f && st.expandedCardRect.h > 1.0f);
+        if (hasPrevCard && st.expandedBackdropRect.Contains(mouse) && !st.expandedCardRect.Contains(mouse)) {
+            layout.RestoreExpanded();
+            ctx.ClearModalBlock(idExpandedModal);
+            ctx.ConsumeMouseClick();
+            out.layoutChanged = true;
+            ctx.InvalidateAll();
+        }
+    }
+}
+
 DockAreaScope OpenDockAreaImpl(
     Context& ctx,
     DockLayout* externalLayout,
@@ -2385,6 +2959,7 @@ DockAreaScope OpenDockAreaImpl(
     const Id id = ctx.MakeChildId(loc);
     const Id idInteract(detail::HashArgs(id.value, keel::u64(0x444F434B5F494E54ull)));
     const Id idOverflowPopup(detail::HashArgs(id.value, keel::u64(0x444F434B5F4F5646ull)));
+    const Id idExpandedModal(detail::HashArgs(id.value, keel::u64(0x444F434B5F455850ull)));
 
     auto& st = ctx.GetOrCreatePersistentState<DockAreaPersistState>(id);
     DockLayout& layout = externalLayout ? *externalLayout : st.ownedLayout;
@@ -2408,7 +2983,12 @@ DockAreaScope OpenDockAreaImpl(
     const DockPanelId prevFloatHover = st.hoveredFloatId;
     const bool prevFloatCloseHover = st.hoveredFloatClose;
     const bool prevFloatRedockHover = st.hoveredFloatRedock;
+    const bool prevFloatExpandHover = st.hoveredFloatExpand;
     const keel::u32 prevOverflowHover = st.hoveredOverflowNode;
+    const keel::u32 prevTabFloatHover = st.hoveredTabFloatNode;
+    const keel::u32 prevTabExpandHover = st.hoveredTabExpandNode;
+    const bool prevExpFsHover = st.hoveredExpandedFullscreen;
+    const bool prevExpCloseHover = st.hoveredExpandedClose;
 
     st.hoveredSashNode = kDockInvalidNode;
     st.hoveredTabId.clear();
@@ -2416,10 +2996,19 @@ DockAreaScope OpenDockAreaImpl(
     st.hoveredFloatId.clear();
     st.hoveredFloatClose = false;
     st.hoveredFloatRedock = false;
+    st.hoveredFloatExpand = false;
     st.hoveredOverflowNode = kDockInvalidNode;
+    st.hoveredTabFloatNode = kDockInvalidNode;
+    st.hoveredTabExpandNode = kDockInvalidNode;
+    st.hoveredExpandedFullscreen = false;
+    st.hoveredExpandedClose = false;
     st.hoveredOverflowItem = -1;
     st.hoveredOverflowItemClose = false;
     st.dropTarget = DockDropTarget{};
+
+    if (!opts.expandable && layout.HasExpandedPanel()) {
+        layout.RestoreExpanded();
+    }
 
     if (st.openOverflowNode != kDockInvalidNode) {
         const auto nodes = layout.Nodes();
@@ -2435,8 +3024,25 @@ DockAreaScope OpenDockAreaImpl(
         UpdateOverflowPopup(ctx, layout, st, opts, theme, idOverflowPopup, outcome);
     }
 
+    // Handle Expanded Modal / Fullscreen overlay interaction (before background dock hit-testing)
+    const bool hadExpandedAtStart = opts.expandable && layout.HasExpandedPanel();
+    if (hadExpandedAtStart) {
+        // Cancel any lingering tab/float drag when expanded modal is open
+        st.tabDragPending = false;
+        st.tabDragging = false;
+        st.activeFloatMoveId.clear();
+        st.activeFloatResizeId.clear();
+        st.activeSashNode = kDockInvalidNode;
+        if (!activeDisabled) {
+            UpdateExpandedModalInteraction(ctx, layout, st, opts, idExpandedModal, outcome);
+        }
+    } else if (ctx.HasPrevFrameModal(idExpandedModal)) {
+        ctx.ClearModalBlock(idExpandedModal);
+        ctx.InvalidateAll();
+    }
+
     // Handle Escape to cancel in-progress tab/float drag
-    if ((st.tabDragPending || st.tabDragging) && ctx.ConsumeKey(Key::Escape)) {
+    if (!hadExpandedAtStart && (st.tabDragPending || st.tabDragging) && ctx.ConsumeKey(Key::Escape)) {
         st.tabDragPending = false;
         st.tabDragging = false;
         st.dragFromFloat = false;
@@ -2447,7 +3053,7 @@ DockAreaScope OpenDockAreaImpl(
         ctx.RequestRepaint(2);
     }
 
-    if (!activeDisabled) {
+    if (!activeDisabled && !hadExpandedAtStart) {
         // Panel-layer hit scope allows DockArea to drive its own sashes, tab bars, and floating card
         // title bars/resize borders without being self-occluded by its own DockFloat children (zLayer=1),
         // while still respecting higher Modals, Popovers, and Popups.
@@ -2469,7 +3075,8 @@ DockAreaScope OpenDockAreaImpl(
         (layout.Revision() != st.lastLayoutRevision &&
          st.activeSashNode == kDockInvalidNode &&
          st.activeFloatMoveId.empty() &&
-         st.activeFloatResizeId.empty())) {
+         st.activeFloatResizeId.empty() &&
+         !layout.HasExpandedPanel())) {
         TriggerLayoutAnimation(st, layout, theme, nowSec, opts.animateLayout);
     }
 
@@ -2499,7 +3106,12 @@ DockAreaScope OpenDockAreaImpl(
         (prevFloatHover != st.hoveredFloatId) ||
         (prevFloatCloseHover != st.hoveredFloatClose) ||
         (prevFloatRedockHover != st.hoveredFloatRedock) ||
-        (prevOverflowHover != st.hoveredOverflowNode);
+        (prevFloatExpandHover != st.hoveredFloatExpand) ||
+        (prevOverflowHover != st.hoveredOverflowNode) ||
+        (prevTabFloatHover != st.hoveredTabFloatNode) ||
+        (prevTabExpandHover != st.hoveredTabExpandNode) ||
+        (prevExpFsHover != st.hoveredExpandedFullscreen) ||
+        (prevExpCloseHover != st.hoveredExpandedClose);
     if (hoverVisualChanged) {
         ctx.RequestRepaint(2);
     }
@@ -2541,6 +3153,7 @@ DockAreaScope OpenDockAreaImpl(
     payload->state = &st;
     payload->ctx = &ctx;
     payload->canvas = ctx.GetCanvas();
+    payload->expandedModalId = idExpandedModal;
     payload->closedPanelThisFrame = outcome.closedPanel;
     payload->activePanelId = st.lastActivePanelId;
     payload->layoutChanged = outcome.layoutChanged || (layout.Revision() != revBefore);
@@ -2563,6 +3176,13 @@ DockAreaScope OpenDockAreaImpl(
         st.hoveredFloatId.as_ref(),
         st.hoveredFloatClose,
         st.hoveredFloatRedock,
+        st.hoveredFloatExpand,
+        st.hoveredTabFloatNode,
+        st.hoveredTabExpandNode,
+        st.hoveredExpandedFullscreen,
+        st.hoveredExpandedClose,
+        layout.ExpandedPanelId(),
+        layout.IsExpandedFullscreen(),
         st.tabDragging,
         keel::as<keel::u8>(st.dropTarget.kind),
         keel::as<keel::u8>(st.dropTarget.side),
@@ -2718,7 +3338,12 @@ DockPanelScope detail::DockArea::OpenPanel(
     }
 
     const bool isFloating = layout->IsPanelFloating(panelId);
-    const bool isVisible = layout->IsPanelActive(panelId);
+    const bool isExpanded = payload->opts.expandable && opts.expandable && layout->IsPanelExpanded(panelId);
+    const bool otherExpandedFullscreen = payload->opts.expandable &&
+        layout->HasExpandedPanel() &&
+        layout->IsExpandedFullscreen() &&
+        !isExpanded;
+    const bool isVisible = isExpanded || (!otherExpandedFullscreen && layout->IsPanelActive(panelId));
 
     // Register panel metadata in arena array for TabBar / Floating Card rendering (even when inactive!)
     RegisteredPanelEntry* entry = FindRegisteredPanelMut(*payload, panelId);
@@ -2744,6 +3369,7 @@ DockPanelScope detail::DockArea::OpenPanel(
     entry->closable = opts.closable;
     entry->floatable = opts.floatable;
     entry->allowDock = opts.allowDock;
+    entry->expandable = opts.expandable;
     entry->disabled = opts.disabled || dockNode->disabled;
     entry->isFloating = isFloating;
     entry->floatZOrder = fc ? fc->zOrder : 0u;
@@ -2751,7 +3377,9 @@ DockPanelScope detail::DockArea::OpenPanel(
 
     // Look up previous-frame content bounds for caller queries (`p.Bounds()`)
     Rect prevBounds{};
-    if (isFloating) {
+    if (isExpanded) {
+        prevBounds = st.expandedContentRect;
+    } else if (isFloating) {
         for (const auto& fg : st.prevFloats) {
             if (fg.panelId.as_ref() == panelId) {
                 prevBounds = fg.contentRect;
@@ -2769,17 +3397,129 @@ DockPanelScope detail::DockArea::OpenPanel(
         }
     }
 
-    // Lazy execution: skip building child widget tree for hidden/inactive tabs (zero CPU cost)
+    // Lazy execution: skip building child widget tree for hidden/inactive tabs (and occluded panes in fullscreen)
     if (!isVisible) {
         return DockPanelScope(&ctx, nullptr, false, false, isFloating, false, prevBounds);
     }
 
     // Wrap visible panel body in stable IdScope(panelId) so internal widget state (scroll, focus, cursor)
-    // survives dragging between tab groups, splits, and floating cards!
+    // survives dragging between tab groups, floating cards, and expanded modal/fullscreen!
     ctx.PushId(panelId);
     const Id panelNodeId = ctx.MakeChildId(loc);
     const UiTheme& theme = dockNode->GetTheme(ctx.GetTheme());
     const bool panelDisabled = opts.disabled || dockNode->disabled;
+
+    if (isExpanded) {
+        const Rect vp = ctx.GetPopupViewportRect();
+        const bool isFs = layout->IsExpandedFullscreen();
+        const Id modalId = payload->expandedModalId;
+
+        Node* modalNode = ctx.CreateNode(NodeType::Modal, modalId, false);
+        modalNode->direction = FlexDirection::Column;
+        modalNode->widthMode = SizeMode::Stretch;
+        modalNode->heightMode = SizeMode::Stretch;
+        modalNode->clipChildren = true;
+        modalNode->uiSize = payload->opts.size;
+
+        auto* ep = ctx.AllocPayload<ExpandedModalPayload>(ExpandedModalPayload{
+            .state = &st,
+            .backdropRect = vp,
+            .fullscreen = isFs,
+            .backdropOpacity = payload->opts.expandBackdropOpacity,
+            .canvas = ctx.GetCanvas()
+        });
+        static constexpr PanelHooks kExpandedModalHooks{
+            .contentClip = &GetExpandedModalBackdropRect
+        };
+        modalNode->SetPayload(ep);
+        modalNode->arrangeFn = &ArrangeExpandedModal;
+        modalNode->renderFn = &RenderExpandedModal;
+        modalNode->panelHooks = &kExpandedModalHooks;
+        modalNode->visualHash = detail::HashArgs(
+            vp.x, vp.y, vp.w, vp.h,
+            isFs,
+            payload->opts.expandBackdropOpacity,
+            panelId
+        );
+
+        ctx.BeginModalScope(modalId, vp);
+        ctx.FinishContainer(modalNode);
+
+        // Card container uses NodeType::Box (NOT DockFloat) so HitTestTree preserves Modal's zLayer=2 and portalId!
+        const Id cardNodeId = opts.scrollable
+            ? Id(detail::HashArgs(panelNodeId.value, keel::u64(0x45585043415244ull)))
+            : panelNodeId;
+        Node* cardNode = ctx.CreateNode(NodeType::Box, cardNodeId, panelDisabled);
+        cardNode->direction = FlexDirection::Column;
+        cardNode->widthMode = SizeMode::Stretch;
+        cardNode->heightMode = SizeMode::Stretch;
+        cardNode->padding = opts.scrollable ? Padding::All(0.0f) : opts.padding.value_or(Padding::All(0.0f));
+        cardNode->gap = opts.scrollable ? 0.0f : opts.gap.value_or(0.0f);
+        cardNode->clipChildren = opts.clipChildren;
+        cardNode->backgroundColor = theme.palette.surface;
+        cardNode->borderColor = isFs ? Color::Transparent() : theme.palette.border;
+        cardNode->borderWidth = isFs ? 0.0f : 1.0f;
+        cardNode->cornerRadius = isFs ? 0.0f : (theme.GetMetrics(payload->opts.size).cornerRadius + 4.0f);
+        cardNode->explicitBorder = 1;
+        cardNode->explicitRadius = 1;
+        cardNode->SetSurfaceRole(isFs ? SurfaceRole::Flat : SurfaceRole::Popup);
+
+        auto* fp = ctx.AllocPayload<DockFloatPayload>();
+        fp->panelId = entry->panelId;
+        fp->title = entry->title;
+        fp->icon = entry->icon;
+        fp->badge = entry->badge;
+        fp->closable = true;
+        fp->allowDock = false;
+        fp->expandable = true;
+        fp->isExpanded = true;
+        fp->expandedFullscreen = isFs;
+        fp->minimized = false;
+        fp->disabled = panelDisabled;
+        fp->closeHovered = st.hoveredExpandedClose;
+        fp->expandHovered = st.hoveredExpandedFullscreen;
+        fp->size = payload->opts.size;
+        fp->titleBarHeight = keel::max(34.0f, theme.GetMetrics(payload->opts.size).defaultHeight + 4.0f);
+
+        static constexpr PanelHooks kExpandedCardHooks{
+            .contentClip = &DockFloatContentClip
+        };
+        cardNode->SetPayload(fp);
+        cardNode->arrangeFn = &ArrangeDockFloat;
+        cardNode->renderFn = &RenderDockFloat;
+        cardNode->panelHooks = &kExpandedCardHooks;
+        cardNode->visualHash = detail::HashArgs(
+            panelId,
+            isFs,
+            fp->closeHovered,
+            fp->expandHovered
+        );
+
+        entry->contentNode = cardNode;
+        ctx.FinishContainer(cardNode);
+
+        Node* outerCard = nullptr;
+        Node* bodyNode = cardNode;
+        if (opts.scrollable) {
+            Node* scrollNode = CreateDockScrollAreaNode(ctx, panelNodeId, panelDisabled, opts, panelId);
+            ctx.FinishContainer(scrollNode);
+            outerCard = cardNode;
+            bodyNode = scrollNode;
+        }
+
+        return DockPanelScope(
+            &ctx,
+            bodyNode,
+            /*hasIdScope=*/true,
+            /*active=*/true,
+            /*floating=*/isFloating,
+            /*closed=*/false,
+            prevBounds,
+            outerCard,
+            modalNode,
+            /*expanded=*/true
+        );
+    }
 
     Node* panelNode = nullptr;
     Node* outerFloatContainer = nullptr;
@@ -2811,10 +3551,12 @@ DockPanelScope detail::DockArea::OpenPanel(
         fp->badge = entry->badge;
         fp->closable = entry->closable;
         fp->allowDock = entry->allowDock;
+        fp->expandable = payload->opts.expandable && entry->expandable;
         fp->minimized = fc ? fc->minimized : false;
         fp->disabled = panelDisabled;
         fp->closeHovered = (st.hoveredFloatId.as_ref() == panelId && st.hoveredFloatClose);
         fp->redockHovered = (st.hoveredFloatId.as_ref() == panelId && st.hoveredFloatRedock);
+        fp->expandHovered = (st.hoveredFloatId.as_ref() == panelId && st.hoveredFloatExpand);
         fp->dragging = (st.activeFloatMoveId.as_ref() == panelId);
         fp->size = payload->opts.size;
         fp->titleBarHeight = keel::max(28.0f, theme.GetMetrics(payload->opts.size).defaultHeight);
@@ -2830,6 +3572,7 @@ DockPanelScope detail::DockArea::OpenPanel(
             panelId,
             fp->closeHovered,
             fp->redockHovered,
+            fp->expandHovered,
             fp->dragging,
             fp->minimized,
             fc ? fc->zOrder : 0u

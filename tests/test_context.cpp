@@ -20092,13 +20092,13 @@ void TestDockAreaInteractiveWorkflow() {
     // Escape cancelled: preview still in right group
     CHECK(layout.FindPanelNode("preview") == layout.FindPanelNode("editor"));
 
-    // Now complete the drag into left group's center (merge into tabs)
+    // Now complete the drag onto left group's center compass tile (merge into tabs)
     ui.AdvanceTime(0.5);
     ui.OnMouseMove(previewTabPos);
     runFrame();
     ui.OnMouseDown(1);
     runFrame();
-    ui.OnMouseMove({200.0f, 250.0f});
+    ui.OnMouseMove(filesBounds.Center());
     runFrame();
     ui.OnMouseUp(1);
     runFrame();
@@ -20111,14 +20111,15 @@ void TestDockAreaInteractiveWorkflow() {
     const keel::i32* preserved = ui.FindState<keel::i32>(savedEditorBtnId);
     CHECK(preserved != nullptr && *preserved == 42);
 
-    // 6. Drag "preview" tab onto right group's right edge -> splits right group into 3 panes
+    // 6. Drag "preview" tab onto right group's right compass tile -> splits right group into 3 panes
     const Vec2 previewInLeftTabPos{filesBounds.x + 135.0f, 16.0f};
     ui.AdvanceTime(0.5);
     ui.OnMouseMove(previewInLeftTabPos);
     runFrame();
     ui.OnMouseDown(1);
     runFrame();
-    ui.OnMouseMove({editorBounds.Right() - 40.0f, 250.0f}); // right quadrant of right group (inside outer edge strip)
+    // Right compass tile sits 1 tile + gap (~34dp) right of editorBounds.Center()
+    ui.OnMouseMove({editorBounds.Center().x + 34.0f, editorBounds.Center().y});
     runFrame();
     ui.OnMouseUp(1);
     runFrame();
@@ -20263,17 +20264,88 @@ void TestDockAreaInteractiveWorkflow() {
         frame2();
         CHECK(botContent.h > 80.0f);
 
-        // (a) Drag "top" tab onto top 15% of botContent (below Output's tab bar!) -> MUST Split Top, not merge as tab!
+        // (a) Drag "top" tab onto bottom group's TOP compass tile (trimmed cleanly above outer bottom tile) -> Split Top!
+        //     And dragging "botA" onto its own multi-tab group's LEFT compass tile -> splits botA left of botB!
+        //     And dragging onto empty body area away from compass tiles -> TearFloat!
+        const keel::f32 botCompassCenterY = botContent.y + ((500.0f - 6.0f - 26.0f - 6.0f) - botContent.y) * 0.5f;
         ui2.AdvanceTime(0.5);
         ui2.OnMouseMove({40.0f, 16.0f});
         frame2();
         ui2.OnMouseDown(1);
         frame2();
-        ui2.OnMouseMove({400.0f, botContent.y + 10.0f});
+        // Top compass tile sits ~24dp above trimmed compass center at x = botContent.Center().x
+        ui2.OnMouseMove({botContent.Center().x, botCompassCenterY - 24.0f});
         frame2();
         ui2.OnMouseUp(1);
         frame2();
         frame2();
+        CHECK(l2.FindPanelNode("top") != l2.FindPanelNode("botA"));
+        CHECK(l2.HasDockedPanel("top"));
+
+        // (a2) Drag "botA" over its OWN 2-tab group's LEFT compass tile -> splits botA away from botB!
+        CHECK(l2.LoadLayout("V(0.70,T(0;top),T(0;botA,botB))"));
+        frame2();
+        frame2();
+        ui2.AdvanceTime(0.5);
+        ui2.OnMouseMove({30.0f, botContent.y - 12.0f}); // botA tab
+        frame2();
+        ui2.OnMouseDown(1);
+        frame2();
+        ui2.OnMouseMove({botContent.Center().x - 24.0f, botCompassCenterY}); // own group's Left compass tile
+        frame2();
+        ui2.OnMouseUp(1);
+        frame2();
+        frame2();
+        CHECK(l2.HasDockedPanel("botA"));
+        CHECK(l2.HasDockedPanel("botB"));
+        CHECK(l2.FindPanelNode("botA") != l2.FindPanelNode("botB"));
+
+        // (a3) Drag "botA" to empty area inside DockArea (bottom-left, away from outer.bottom tile) -> safe cancel (stays docked!)
+        //      And dropping on own 2-tab group's Center ("Keep") tile -> safe no-op (stays in own group!)
+        CHECK(l2.LoadLayout("V(0.70,T(0;top),T(0;botA,botB))"));
+        frame2();
+        frame2();
+        ui2.AdvanceTime(0.5);
+        ui2.OnMouseMove({30.0f, botContent.y - 12.0f});
+        frame2();
+        ui2.OnMouseDown(1);
+        frame2();
+        ui2.OnMouseMove({120.0f, 488.0f}); // inside DockArea away from tiles -> safe cancel (NOT TearFloat, NOT RootEdge)
+        frame2();
+        ui2.OnMouseUp(1);
+        frame2();
+        frame2();
+        CHECK(!l2.IsPanelFloating("botA"));
+        CHECK(l2.FindPanelNode("botA") == l2.FindPanelNode("botB"));
+
+        ui2.AdvanceTime(0.5);
+        ui2.OnMouseMove({30.0f, botContent.y - 12.0f});
+        frame2();
+        ui2.OnMouseDown(1);
+        frame2();
+        ui2.OnMouseMove({botContent.Center().x, botCompassCenterY}); // own group's Center ("Keep") tile -> stays in place
+        frame2();
+        ui2.OnMouseUp(1);
+        frame2();
+        frame2();
+        CHECK(!l2.IsPanelFloating("botA"));
+        CHECK(l2.FindPanelNode("botA") == l2.FindPanelNode("botB"));
+
+        // (a4) Drag "top" onto the explicit bottom outer-edge tile -> RootEdge::Bottom!
+        CHECK(l2.LoadLayout("V(0.70,T(0;top),T(0;botA,botB))"));
+        frame2();
+        frame2();
+        ui2.AdvanceTime(0.5);
+        ui2.OnMouseMove({40.0f, 16.0f});
+        frame2();
+        ui2.OnMouseDown(1);
+        frame2();
+        ui2.OnMouseMove({400.0f, 500.0f - 6.0f - 13.0f}); // exact center of outer.bottom tile
+        frame2();
+        ui2.OnMouseUp(1);
+        frame2();
+        frame2();
+        CHECK(l2.HasDockedPanel("top"));
         CHECK(l2.FindPanelNode("top") != l2.FindPanelNode("botA"));
 
         // (b) Drag "top" tab onto the very left edge of botA's tab bar -> InsertTab at index 0!
@@ -20343,6 +20415,131 @@ void TestDockAreaInteractiveWorkflow() {
         frame3();
         CHECK(l3.IsPanelActive("t6"));
         CHECK(!ui2.GetOpenPopupId().IsValid());
+
+        // (e) Expanded Modal (~84%) <-> Fullscreen (100%) + closeOnBackdrop / closeOnEscape flags + tab-bar Float button
+        {
+            Context ui4;
+            ui4.SetTheme(theme);
+            ui4.SetCurrentTime(1.0);
+            DockLayout l4;
+            CHECK(l4.LoadLayout("H(0.50,T(0;left),T(0;right))"));
+            bool closeOnBackdrop = false;
+            bool closeOnEscape = false;
+            keel::i32 leftRuns = 0;
+            keel::i32 rightRuns = 0;
+            bool leftExpandedFlag = false;
+            Rect leftExpBounds{};
+            Id leftBtnId{};
+
+            auto frame4 = [&]() {
+                leftRuns = 0;
+                rightRuns = 0;
+                leftExpandedFlag = false;
+                ui4.BeginFrame({800.0f, 500.0f}, 1.0f);
+                if (auto dock = guikit::DockArea(ui4, l4, {
+                    .expandable = true,
+                    .expandCloseOnBackdrop = closeOnBackdrop,
+                    .expandCloseOnEscape = closeOnEscape,
+                    .animateLayout = false
+                })) {
+                    if (auto p = dock.Panel("left", {.title = "Left Panel"})) {
+                        ++leftRuns;
+                        leftExpandedFlag = p.IsExpanded();
+                        leftExpBounds = p.Bounds();
+                        leftBtnId = guikit::Button(ui4, {.text = "LeftBtn"}).id;
+                    }
+                    if (auto p = dock.Panel("right", {.title = "Right Panel"})) {
+                        ++rightRuns;
+                        guikit::Text(ui4, "Right");
+                    }
+                }
+                ui4.EndFrame(canvas);
+            };
+
+            auto click4 = [&](Vec2 pt) {
+                ui4.AdvanceTime(0.5);
+                ui4.OnMouseMove(pt);
+                frame4();
+                ui4.OnMouseDown(1);
+                frame4();
+                ui4.OnMouseUp(1);
+                frame4();
+            };
+            auto dblClick4 = [&](Vec2 pt) {
+                ui4.AdvanceTime(0.5);
+                ui4.OnMouseMove(pt);
+                frame4();
+                ui4.OnMouseDown(1);
+                frame4();
+                ui4.OnMouseUp(1);
+                frame4();
+                ui4.AdvanceTime(0.08);
+                ui4.OnMouseDown(1);
+                frame4();
+                ui4.OnMouseUp(1);
+                frame4();
+            };
+
+            frame4();
+            frame4();
+            const Id savedLeftBtn = leftBtnId;
+            CHECK(savedLeftBtn.IsValid());
+            CHECK(!l4.HasExpandedPanel());
+
+            // 1. Double-click "left" tab -> opens Expanded Modal (~84% viewport) while keeping IdScope & background visible
+            dblClick4({40.0f, 16.0f});
+            frame4();
+            CHECK(l4.IsPanelExpanded("left"));
+            CHECK(!l4.IsExpandedFullscreen());
+            CHECK(leftExpandedFlag);
+            CHECK(leftBtnId == savedLeftBtn);
+            CHECK(leftExpBounds.w > 600.0f && leftExpBounds.w < 790.0f);
+            CHECK(rightRuns == 1); // background stays visible behind dimmed backdrop in Modal mode
+
+            // 2. With expandCloseOnBackdrop = false & expandCloseOnEscape = false, neither closes the modal
+            click4({8.0f, 8.0f});
+            CHECK(l4.IsPanelExpanded("left"));
+            ui4.OnKeyDown(Key::Escape);
+            frame4();
+            CHECK(l4.IsPanelExpanded("left"));
+
+            // 3. Double-click modal header -> switches to Fullscreen (100% viewport) & skips occluded background panels
+            dblClick4({400.0f, leftExpBounds.y - 16.0f});
+            frame4();
+            CHECK(l4.IsPanelExpanded("left"));
+            CHECK(l4.IsExpandedFullscreen());
+            CHECK(leftExpBounds.w >= 798.0f);
+            CHECK(rightRuns == 0); // occluded background panel skipped in fullscreen for max FPS
+
+            // 4. Double-click fullscreen header -> returns to Modal (~84%)
+            dblClick4({400.0f, 16.0f});
+            frame4();
+            CHECK(l4.IsPanelExpanded("left"));
+            CHECK(!l4.IsExpandedFullscreen());
+
+            // 5. Enable expandCloseOnBackdrop -> clicking dimmed backdrop restores panel to dock
+            closeOnBackdrop = true;
+            click4({8.0f, 8.0f});
+            frame4();
+            CHECK(!l4.HasExpandedPanel());
+            CHECK(l4.HasDockedPanel("left"));
+
+            // 6. Re-expand and test expandCloseOnEscape = true -> Escape restores panel to dock
+            CHECK(l4.ExpandPanel("left", false));
+            frame4();
+            frame4();
+            closeOnEscape = true;
+            ui4.OnKeyDown(Key::Escape);
+            frame4();
+            CHECK(!l4.HasExpandedPanel());
+            CHECK(l4.HasDockedPanel("left"));
+
+            // 7. Click tab-bar Float button on right pane -> detaches "right" into a floating card
+            //    Right pane spans x ~ 403..799; Expand button is rightmost (~775..795), Float button is left of it (~753..773)
+            click4({763.0f, 16.0f});
+            frame4();
+            CHECK(l4.IsPanelFloating("right"));
+        }
     }
 
     keel::println("  [PASS] TestDockAreaInteractiveWorkflow completed");
