@@ -170,9 +170,7 @@ public:
         return m_baseTransform.Then(Transform2D{m_xfScale, m_xfOffset});
     }
     void SetScale(keel::f32 scale) override {
-        const keel::f32 s = (scale > 0.0f) ? scale : 1.0f;
-        m_scale = s;
-        m_baseTransform.scale = s;
+        m_baseTransform.scale = (scale > 0.0f) ? scale : 1.0f;
     }
     void PushTransform(const Transform2D& transform) override;
     void PopTransform() override;
@@ -243,7 +241,6 @@ private:
     DrawList& m_list;
     ICanvas* m_target{nullptr};
     Transform2D m_baseTransform{1.0f, Vec2{0.0f, 0.0f}};
-    keel::f32 m_scale{1.0f};
     keel::f32 m_xfScale{1.0f};
     Vec2 m_xfOffset{0.0f, 0.0f};
     keel::SmallArray<TransformState, 8> m_transformStack;

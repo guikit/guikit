@@ -1996,45 +1996,40 @@ void detail::Table::RenderBody(
         // Draw vertical column grid lines across the body viewport (frozen + visible scrollable columns)
         if (data->opts.gridLines) {
             const PixelGrid pg = PixelGrid::From(canvas);
-            const keel::i32 step = pg.UnitStepPx();
-            const keel::f32 stepDp = pg.PxToDp(step);
             if (data->opts.showRowNumbers && data->rowNumberColW > 0.0f) {
-                const keel::f32 divX = pg.SnapLineCenterX(data->bodyViewportRect.x + data->rowNumberColW - rowNumScrollX, step);
+                const keel::f32 divX = data->bodyViewportRect.x + data->rowNumberColW - rowNumScrollX;
                 if (divX >= data->bodyViewportRect.x && divX <= data->bodyViewportRect.Right()) {
-                    canvas.DrawLine(
+                    pg.DrawAlignedLine(
+                        canvas,
                         Vec2(divX, data->bodyViewportRect.y),
                         Vec2(divX, data->bodyViewportRect.Bottom()),
                         pal.borderSubtle.WithAlpha(95),
-                        stepDp
+                        1.0f
                     );
                 }
             }
             for (keel::usize i = 0; i < data->frozenColCount; ++i) {
-                const keel::f32 divX = pg.SnapLineCenterX(
-                    data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i],
-                    step
-                );
+                const keel::f32 divX = data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i];
                 if (divX >= data->bodyViewportRect.x && divX < data->bodyViewportRect.Right() - 0.5f) {
-                    canvas.DrawLine(
+                    pg.DrawAlignedLine(
+                        canvas,
                         Vec2(divX, data->bodyViewportRect.y),
                         Vec2(divX, data->bodyViewportRect.Bottom()),
                         pal.borderSubtle.WithAlpha(95),
-                        stepDp
+                        1.0f
                     );
                 }
             }
             const keel::f32 scrollLeftBound = data->bodyViewportRect.x + frozenClipW + 0.5f;
             for (keel::usize i = data->firstVisibleCol; i < data->endVisibleCol; ++i) {
-                const keel::f32 divX = pg.SnapLineCenterX(
-                    data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i] - scrollOff.x,
-                    step
-                );
+                const keel::f32 divX = data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i] - scrollOff.x;
                 if (divX > scrollLeftBound && divX < data->bodyViewportRect.Right() - 0.5f) {
-                    canvas.DrawLine(
+                    pg.DrawAlignedLine(
+                        canvas,
                         Vec2(divX, data->bodyViewportRect.y),
                         Vec2(divX, data->bodyViewportRect.Bottom()),
                         pal.borderSubtle.WithAlpha(85),
-                        stepDp
+                        1.0f
                     );
                 }
             }
@@ -2294,14 +2289,13 @@ void detail::Table::RenderChromeAndScrollbars(
 
         // Bottom separator line under sticky header
         const PixelGrid pgHdr = PixelGrid::From(canvas);
-        const keel::i32 hdrStep = pgHdr.UnitStepPx();
-        const keel::f32 hdrStepDp = pgHdr.PxToDp(hdrStep);
-        const keel::f32 hdrBotY = pgHdr.SnapLineCenterY(data->headerRect.Bottom() - hdrStepDp * 0.5f, hdrStep);
-        canvas.DrawLine(
+        const keel::f32 hdrBotY = data->headerRect.Bottom() - pgHdr.UnitStepDp() * 0.5f;
+        pgHdr.DrawAlignedLine(
+            canvas,
             Vec2(data->headerRect.x, hdrBotY),
             Vec2(data->headerRect.Right(), hdrBotY),
             pal.border,
-            hdrStepDp
+            1.0f
         );
         canvas.PopClip();
     }
@@ -2344,16 +2338,15 @@ void detail::Table::RenderChromeAndScrollbars(
     // 2. Render optional footer bar (showing visible rows / total rows + custom footerText)
     if (data->footerRect.w > 0.0f && data->footerRect.h > 0.0f) {
         const PixelGrid pgFtr = PixelGrid::From(canvas);
-        const keel::i32 ftrStep = pgFtr.UnitStepPx();
-        const keel::f32 ftrStepDp = pgFtr.PxToDp(ftrStep);
         canvas.PushClip(data->footerRect);
         canvas.DrawRect(data->footerRect, pal.surfaceElevated);
-        const keel::f32 topY = pgFtr.SnapLineCenterY(data->footerRect.y + ftrStepDp * 0.5f, ftrStep);
-        canvas.DrawLine(
+        const keel::f32 topY = data->footerRect.y + pgFtr.UnitStepDp() * 0.5f;
+        pgFtr.DrawAlignedLine(
+            canvas,
             Vec2(data->footerRect.x, topY),
             Vec2(data->footerRect.Right(), topY),
             pal.borderSubtle,
-            ftrStepDp
+            1.0f
         );
 
         const keel::f32 footerFontSize = ResolveTableFontSize(UiText{}, TextRole::LabelSmall, theme);

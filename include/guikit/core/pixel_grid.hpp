@@ -155,6 +155,30 @@ struct PixelGrid {
     [[nodiscard]] Rect SnapRect(Rect r) const noexcept {
         return PxRectToLogical(SnapRectPx(r));
     }
+
+    /// Draws a line whose axis-aligned position and nominal 1 dp hairline thickness (`<= 1.05 dp`)
+    /// are snapped to this physical pixel grid (`N + 0.5` for odd px widths, `N` for even).
+    /// Non-axis-aligned segments and thicker strokes (`> 1.05 dp`) preserve their exact thickness.
+    void DrawAlignedLine(
+        ICanvas& canvas,
+        Vec2 p0,
+        Vec2 p1,
+        Color color,
+        keel::f32 thickness = 1.0f
+    ) const {
+        if (color.a == 0u || thickness <= 0.0f) return;
+        const keel::i32 thickPx = (thickness <= 1.05f) ? UnitStepPx() : StrokePx(thickness);
+        const keel::f32 effThick = (thickness <= 1.05f) ? PxToDp(thickPx) : thickness;
+        if (keel::abs(p1.y - p0.y) < 0.01f) {
+            const keel::f32 sy = SnapLineCenterY(p0.y, thickPx);
+            canvas.DrawLine(Vec2(SnapEdgeX(p0.x), sy), Vec2(SnapEdgeX(p1.x), sy), color, effThick);
+        } else if (keel::abs(p1.x - p0.x) < 0.01f) {
+            const keel::f32 sx = SnapLineCenterX(p0.x, thickPx);
+            canvas.DrawLine(Vec2(sx, SnapEdgeY(p0.y)), Vec2(sx, SnapEdgeY(p1.y)), color, effThick);
+        } else {
+            canvas.DrawLine(p0, p1, color, effThick);
+        }
+    }
 };
 
 } // namespace guikit

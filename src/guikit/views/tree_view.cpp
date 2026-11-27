@@ -1651,10 +1651,8 @@ void detail::TreeView::RenderRow(
 
     if (hasGridLines) {
         const PixelGrid pg = PixelGrid::From(canvas);
-        const keel::i32 step = pg.UnitStepPx();
-        const keel::f32 stepDp = pg.PxToDp(step);
-        const keel::f32 lineY = pg.SnapLineCenterY(bounds.Bottom() - stepDp * 0.5f, step);
-        canvas.DrawLine({bounds.x, lineY}, {bounds.Right(), lineY}, pal.borderSubtle.WithAlpha(85), stepDp);
+        const keel::f32 lineY = bounds.Bottom() - pg.UnitStepDp() * 0.5f;
+        pg.DrawAlignedLine(canvas, {bounds.x, lineY}, {bounds.Right(), lineY}, pal.borderSubtle.WithAlpha(85), 1.0f);
     }
 
     // Left vertical accent indicator bar when selected in Indicator mode (modern translucent selection only)
@@ -1945,14 +1943,13 @@ void detail::TreeView::RenderHeader(
     }
     if (!chromeM.recessedRegions) {
         const PixelGrid pg = PixelGrid::From(canvas);
-        const keel::i32 step = pg.UnitStepPx();
-        const keel::f32 stepDp = pg.PxToDp(step);
-        const keel::f32 hdrBotY = pg.SnapLineCenterY(headerRect.Bottom() - stepDp * 0.5f, step);
-        canvas.DrawLine(
+        const keel::f32 hdrBotY = headerRect.Bottom() - pg.UnitStepDp() * 0.5f;
+        pg.DrawAlignedLine(
+            canvas,
             Vec2(headerRect.x, hdrBotY),
             Vec2(headerRect.Right(), hdrBotY),
             pal.border,
-            stepDp
+            1.0f
         );
     }
     canvas.PopClip();
@@ -1972,21 +1969,20 @@ void detail::TreeView::RenderOverlay(
 
     const auto& pal = theme.palette;
     const PixelGrid pg = PixelGrid::From(canvas);
-    const keel::i32 step = pg.UnitStepPx();
-    const keel::f32 stepDp = pg.PxToDp(step);
     const keel::f32 colOriginX = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColOriginX : bodyRect.x;
 
     canvas.PushClip(bodyRect);
 
     if (tree->opts.gridLines) {
         for (keel::u16 i = 0; i + 1 < tree->columnCount; ++i) {
-            const keel::f32 divX = pg.SnapLineCenterX(colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i], step);
+            const keel::f32 divX = colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i];
             if (divX >= bodyRect.x && divX < bodyRect.Right() - 0.5f) {
-                canvas.DrawLine(
+                pg.DrawAlignedLine(
+                    canvas,
                     Vec2(divX, bodyRect.y),
                     Vec2(divX, bodyRect.Bottom()),
                     pal.borderSubtle.WithAlpha(85),
-                    stepDp
+                    1.0f
                 );
             }
         }
@@ -1998,20 +1994,20 @@ void detail::TreeView::RenderOverlay(
     if (activeDivCol >= 0 && keel::as<keel::u16>(activeDivCol) + 1 < tree->columnCount) {
         const keel::u16 colIdx = keel::as<keel::u16>(activeDivCol);
         const bool isDragging = (tree->state && tree->state->resizingCol >= 0);
-        const keel::i32 guidePx = pg.StrokePx(isDragging ? 1.5f : 1.0f);
         const keel::f32 guideX = keel::clamp(
-            pg.SnapLineCenterX(colOriginX + tree->resolvedColX[colIdx] + tree->resolvedColW[colIdx], guidePx),
+            colOriginX + tree->resolvedColX[colIdx] + tree->resolvedColW[colIdx],
             bodyRect.x + 1.0f,
             bodyRect.Right() - 1.5f
         );
         const Color guideCol = isDragging
             ? pal.accent.WithAlpha(210)
             : pal.accent.WithAlpha(110);
-        canvas.DrawLine(
+        pg.DrawAlignedLine(
+            canvas,
             Vec2(guideX, bodyRect.y),
             Vec2(guideX, bodyRect.Bottom()),
             guideCol,
-            pg.PxToDp(guidePx)
+            isDragging ? 1.5f : 1.0f
         );
     }
 

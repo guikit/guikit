@@ -438,8 +438,7 @@ void DrawList::Replay(ICanvas& target) const {
 DrawListRecorder::DrawListRecorder(DrawList& list, ICanvas* target) noexcept
     : m_list(list)
     , m_target(target)
-    , m_baseTransform(target ? target->GetPixelTransform() : Transform2D{1.0f, Vec2{0.0f, 0.0f}})
-    , m_scale(m_baseTransform.scale) {
+    , m_baseTransform(target ? target->GetPixelTransform() : Transform2D{1.0f, Vec2{0.0f, 0.0f}}) {
 }
 
 void DrawListRecorder::FlushToTarget() {
@@ -616,8 +615,7 @@ bool DrawListRecorder::DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool pun
 }
 
 void DrawListRecorder::Begin(keel::u32 /*width*/, keel::u32 /*height*/, keel::f32 scale) {
-    m_scale = (scale > 0.0f) ? scale : 1.0f;
-    m_baseTransform = Transform2D{m_scale, Vec2{0.0f, 0.0f}};
+    m_baseTransform = Transform2D{(scale > 0.0f) ? scale : 1.0f, Vec2{0.0f, 0.0f}};
     m_xfScale = 1.0f;
     m_xfOffset = {0.0f, 0.0f};
     m_transformStack.clear();

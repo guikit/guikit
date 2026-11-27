@@ -1234,19 +1234,8 @@ void DefaultStylePainter::DrawDivider(
         return;
     }
     if (fallbackColor.a == 0u || thickness <= 0.0f) return;
-    const PixelGrid pg = PixelGrid::From(canvas);
     const keel::f32 effThick = (theme.chrome.divider == DividerStyle::Bold) ? keel::max(thickness, 2.0f) : thickness;
-    const keel::i32 thickPx = (effThick <= 1.05f) ? pg.UnitStepPx() : pg.StrokePx(effThick);
-    const keel::f32 snappedThick = (effThick <= 1.05f) ? pg.PxToDp(thickPx) : effThick;
-    if (keel::abs(p1.y - p0.y) < 0.01f) {
-        const keel::f32 sy = pg.SnapLineCenterY(p0.y, thickPx);
-        canvas.DrawLine(Vec2(pg.SnapEdgeX(p0.x), sy), Vec2(pg.SnapEdgeX(p1.x), sy), fallbackColor, snappedThick);
-    } else if (keel::abs(p1.x - p0.x) < 0.01f) {
-        const keel::f32 sx = pg.SnapLineCenterX(p0.x, thickPx);
-        canvas.DrawLine(Vec2(sx, pg.SnapEdgeY(p0.y)), Vec2(sx, pg.SnapEdgeY(p1.y)), fallbackColor, snappedThick);
-    } else {
-        canvas.DrawLine(p0, p1, fallbackColor, snappedThick);
-    }
+    PixelGrid::From(canvas).DrawAlignedLine(canvas, p0, p1, fallbackColor, effThick);
 }
 
 void DefaultStylePainter::DrawControlText(

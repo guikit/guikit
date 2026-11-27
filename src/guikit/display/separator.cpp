@@ -15,21 +15,7 @@ void detail::Separator::RenderLine(
     Color color,
     keel::f32 thickness
 ) noexcept {
-    if (color.a == 0 || thickness <= 0.0f) {
-        return;
-    }
-    const PixelGrid pg = PixelGrid::From(canvas);
-    const keel::i32 thickPx = (thickness <= 1.05f) ? pg.UnitStepPx() : pg.StrokePx(thickness);
-    const keel::f32 snappedThick = (thickness <= 1.05f) ? pg.PxToDp(thickPx) : thickness;
-    if (keel::abs(p1.y - p0.y) < 0.01f) {
-        const keel::f32 sy = pg.SnapLineCenterY(p0.y, thickPx);
-        canvas.DrawLine(Vec2(pg.SnapEdgeX(p0.x), sy), Vec2(pg.SnapEdgeX(p1.x), sy), color, snappedThick);
-    } else if (keel::abs(p1.x - p0.x) < 0.01f) {
-        const keel::f32 sx = pg.SnapLineCenterX(p0.x, thickPx);
-        canvas.DrawLine(Vec2(sx, pg.SnapEdgeY(p0.y)), Vec2(sx, pg.SnapEdgeY(p1.y)), color, snappedThick);
-    } else {
-        canvas.DrawLine(p0, p1, color, snappedThick);
-    }
+    PixelGrid::From(canvas).DrawAlignedLine(canvas, p0, p1, color, thickness);
 }
 
 void detail::Separator::Render(
