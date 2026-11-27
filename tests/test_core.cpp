@@ -4166,6 +4166,169 @@ void TestSliderThumbShapesAndContrast() {
     cap.End();
 }
 
+void TestPixelGridAndPhysicalBevelConsistency() {
+    using namespace guikit;
+
+    // 1. UnitStepPx quantization curve across standard DPI scales & extreme zoom-out guard
+    CHECK(PixelGrid::FromTransform(Transform2D{0.25f, {0.0f, 0.0f}}).UnitStepDp() <= 1.01f);
+    CHECK(PixelGrid::FromTransform(Transform2D{1.0f, {0.0f, 0.0f}}).UnitStepPx() == 1);
+    CHECK(PixelGrid::FromTransform(Transform2D{1.25f, {0.0f, 0.0f}}).UnitStepPx() == 1);
+    CHECK(PixelGrid::FromTransform(Transform2D{1.5f, {0.0f, 0.0f}}).UnitStepPx() == 1);
+    CHECK(PixelGrid::FromTransform(Transform2D{1.75f, {0.0f, 0.0f}}).UnitStepPx() == 2);
+    CHECK(PixelGrid::FromTransform(Transform2D{2.0f, {0.0f, 0.0f}}).UnitStepPx() == 2);
+    CHECK(PixelGrid::FromTransform(Transform2D{3.0f, {0.0f, 0.0f}}).UnitStepPx() == 3);
+
+    // 2. NullCanvas & DrawListRecorder GetPixelTransform composition with nested PushTransform/PopTransform
+    {
+        NullCanvas nc;
+        nc.Begin(800u, 600u, 1.5f);
+        const Transform2D baseXf = nc.GetPixelTransform();
+        CHECK(keel::abs(baseXf.scale - 1.5f) < 0.001f);
+        CHECK(keel::abs(baseXf.offset.x) < 0.001f && keel::abs(baseXf.offset.y) < 0.001f);
+
+        nc.PushTransform(Transform2D{1.0f, Vec2{10.5f, 20.25f}});
+        const Transform2D shifted = nc.GetPixelTransform();
+        CHECK(keel::abs(shifted.scale - 1.5f) < 0.001f);
+        CHECK(keel::abs(shifted.offset.x - 15.75f) < 0.001f);
+        CHECK(keel::abs(shifted.offset.y - 30.375f) < 0.001f);
+
+        DrawList dl;
+        DrawListRecorder rec(dl, &nc);
+        const Transform2D recInit = rec.GetPixelTransform();
+        CHECK(keel::abs(recInit.scale - shifted.scale) < 0.001f);
+        CHECK(keel::abs(recInit.offset.x - shifted.offset.x) < 0.001f);
+        CHECK(keel::abs(recInit.offset.y - shifted.offset.y) < 0.001f);
+
+        rec.PushTransform(Transform2D{2.0f, Vec2{4.0f, 6.0f}});
+        const Transform2D recNested = rec.GetPixelTransform();
+        CHECK(keel::abs(recNested.scale - 3.0f) < 0.001f);
+        CHECK(keel::abs(recNested.offset.x - (15.75f + 6.0f)) < 0.001f);
+        CHECK(keel::abs(recNested.offset.y - (30.375f + 9.0f)) < 0.001f);
+        rec.PopTransform();
+        nc.PopTransform();
+        nc.End();
+    }
+
+    // 3. Matrix test: etched & raised/sunken 3D frames across fractional DPIs, fractional offsets & odd/even coords
+    struct CaptureRectsCanvas final : public NullCanvas {
+        keel::Array<Rect> rects{};
+        void DrawRect(Rect rect, Color fill) override {
+            rects.push_back(rect);
+            NullCanvas::DrawRect(rect, fill);
+        }
+    };
+
+    const UiTheme win98 = UiTheme::Windows98();
+    const keel::f32 scales[] = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
+    const keel::f32 offsets[] = {0.0f, 0.25f, 0.33f, 0.5f, 0.75f};
+    const Rect testCards[] = {
+        Rect(100.0f, 50.0f, 114.0f, 52.0f),
+        Rect(101.0f, 51.0f, 114.0f, 52.0f),
+        Rect(101.3f, 50.7f, 113.5f, 51.5f),
+    };
+
+    auto isWholePx = [](keel::f32 v) noexcept -> bool {
+        return keel::abs(v - keel::floor(v + 0.5f)) < 1e-3f;
+    };
+
+    CaptureRectsCanvas cap;
+    for (const keel::f32 sc : scales) {
+        for (const keel::f32 off : offsets) {
+            cap.Begin(1280u, 800u, sc);
+            cap.PushTransform(Transform2D{1.0f, Vec2{off, off * 0.5f}});
+            const Transform2D pxXf = cap.GetPixelTransform();
+            const keel::i32 expectedStep = PixelGrid::FromTransform(pxXf).UnitStepPx();
+
+            for (const Rect& card : testCards) {
+                cap.rects.clear();
+                const SurfacePaintParams sp{
+                    .rect = card,
+                    .role = SurfaceRole::Flat,
+                    .bg = win98.palette.surface,
+                    .border = win98.palette.border,
+                    .borderWidth = 1.0f
+                };
+                win98.Painter().DrawSurfaceBg(cap, win98, sp);
+                win98.Painter().DrawSurfaceFrame(cap, win98, sp);
+
+                // 1 background rect + 8 etched bevel strips
+                CHECK(cap.rects.size() == 9u);
+                const Rect bgPx = pxXf.Apply(cap.rects[0]);
+                CHECK(isWholePx(bgPx.x) && isWholePx(bgPx.y) && isWholePx(bgPx.Right()) && isWholePx(bgPx.Bottom()));
+
+                for (keel::usize i = 1u; i < cap.rects.size(); ++i) {
+                    const Rect stripPx = pxXf.Apply(cap.rects[i]);
+                    CHECK(isWholePx(stripPx.x));
+                    CHECK(isWholePx(stripPx.y));
+                    CHECK(isWholePx(stripPx.Right()));
+                    CHECK(isWholePx(stripPx.Bottom()));
+                    // Every strip's minor dimension must equal exact integer expectedStep physical pixels
+                    const keel::f32 minorPx = keel::min(stripPx.w, stripPx.h);
+                    CHECK(keel::abs(minorPx - keel::as<keel::f32>(expectedStep)) < 1e-3f);
+                    // Every strip stays strictly within the snapped background bounds (zero overhang / zero gap)
+                    CHECK(stripPx.x >= bgPx.x - 1e-3f && stripPx.Right() <= bgPx.Right() + 1e-3f);
+                    CHECK(stripPx.y >= bgPx.y - 1e-3f && stripPx.Bottom() <= bgPx.Bottom() + 1e-3f);
+                }
+
+                // Also verify raised 2-layer 3D bevel frame
+                cap.rects.clear();
+                DefaultStylePainter::DrawBevelFrame(cap, card, win98.bevel, /*sunken=*/false, /*thin=*/false);
+                CHECK(cap.rects.size() == 8u);
+                for (const Rect& r : cap.rects) {
+                    const Rect stripPx = pxXf.Apply(r);
+                    CHECK(isWholePx(stripPx.x) && isWholePx(stripPx.y) && isWholePx(stripPx.Right()) && isWholePx(stripPx.Bottom()));
+                    CHECK(keel::abs(keel::min(stripPx.w, stripPx.h) - keel::as<keel::f32>(expectedStep)) < 1e-3f);
+                }
+
+                // Verify Classic3D TabBar baseline + active/inactive TabChrome bevel strips share exact physical baseline & step
+                const Rect tabBarR(card.x, card.y, 260.0f, 30.0f);
+                cap.rects.clear();
+                win98.Painter().DrawTabBarBaseline(cap, win98, tabBarR);
+                CHECK(cap.rects.size() == 1u);
+                const Rect baseLinePx = pxXf.Apply(cap.rects[0]);
+                CHECK(isWholePx(baseLinePx.x) && isWholePx(baseLinePx.y) && isWholePx(baseLinePx.Right()) && isWholePx(baseLinePx.Bottom()));
+                CHECK(keel::abs(baseLinePx.h - keel::as<keel::f32>(expectedStep)) < 1e-3f);
+
+                for (keel::i32 tabIdx = 0; tabIdx < 2; ++tabIdx) {
+                    const bool isAct = (tabIdx == 0);
+                    const Rect tabR(tabBarR.x + keel::as<keel::f32>(tabIdx) * 73.0f, tabBarR.y, 73.0f, tabBarR.h);
+                    cap.rects.clear();
+                    (void)win98.Painter().DrawTabChrome(
+                        cap, win98, tabR, TabChromeStyle::Card, isAct, false, false, false,
+                        true, win98.palette.accent, win98.palette.accent, 0.0f
+                    );
+                    // 3 body rects + 8 bevel strips + 1 bottom cover/baseline rect = 12 rects
+                    CHECK(cap.rects.size() == 12u);
+                    for (keel::usize i = 3u; i < cap.rects.size(); ++i) {
+                        const Rect stripPx = pxXf.Apply(cap.rects[i]);
+                        CHECK(isWholePx(stripPx.x) && isWholePx(stripPx.y) && isWholePx(stripPx.Right()) && isWholePx(stripPx.Bottom()));
+                        CHECK(keel::abs(keel::min(stripPx.w, stripPx.h) - keel::as<keel::f32>(expectedStep)) < 1e-3f);
+                    }
+                    // Bottom strip aligns identically with TabBarBaseline
+                    const Rect tabBotPx = pxXf.Apply(cap.rects.back());
+                    CHECK(keel::abs(tabBotPx.y - baseLinePx.y) < 1e-3f);
+                    CHECK(keel::abs(tabBotPx.Bottom() - baseLinePx.Bottom()) < 1e-3f);
+                }
+
+                // Verify TreeExpander [+] box border & strokes are exact integer step physical pixels
+                cap.rects.clear();
+                win98.Painter().DrawTreeExpander(
+                    cap, win98, Rect(card.x + 6.0f, card.y + 6.0f, 12.0f, 12.0f),
+                    false, false, false, false, win98.palette.textPrimary
+                );
+                CHECK(cap.rects.size() == 7u); // 1 fill + 4 border + 2 plus bars
+                for (keel::usize i = 1u; i < cap.rects.size(); ++i) {
+                    const Rect stripPx = pxXf.Apply(cap.rects[i]);
+                    CHECK(isWholePx(stripPx.x) && isWholePx(stripPx.y) && isWholePx(stripPx.Right()) && isWholePx(stripPx.Bottom()));
+                    CHECK(keel::abs(keel::min(stripPx.w, stripPx.h) - keel::as<keel::f32>(expectedStep)) < 1e-3f);
+                }
+            }
+            cap.PopTransform();
+            cap.End();
+        }
+    }
+}
+
 int main() {
     keel::println("[RUN] Testing GuiKit Core Foundation...");
 
@@ -4202,6 +4365,7 @@ int main() {
     TestFillStyleOutlineIndicatorsVisible();
     TestSplitViewSashChromeStyles();
     TestSliderThumbShapesAndContrast();
+    TestPixelGridAndPhysicalBevelConsistency();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Core tests passed successfully!");

@@ -520,7 +520,7 @@ void detail::Carousel::RenderArrows(
     if (cData->showLeftArrow) {
         drawArrow(cData->leftArrowRect, cData->leftArrowHovered, cData->leftArrowPressed, true);
         if (sepY2 > sepY1) {
-            const keel::f32 sepX = keel::floor(cData->viewportRect.x) + 0.5f;
+            const keel::f32 sepX = cData->viewportRect.x;
             theme.Painter().DrawDivider(canvas, theme, Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
         }
     }

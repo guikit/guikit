@@ -22,6 +22,7 @@
 #include "guikit/core/image_cache.hpp"
 #include "guikit/core/main_window.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/pixel_grid.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/scrollbar.hpp"

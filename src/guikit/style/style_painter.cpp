@@ -1,5 +1,6 @@
 #include "guikit/style/style_painter.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/core/pixel_grid.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/math.h"
 
@@ -10,14 +11,6 @@ namespace guikit {
 // ==============================================================================
 
 namespace {
-
-[[nodiscard]] Rect SnapBevelRect(Rect r) noexcept {
-    const keel::f32 x0 = keel::floor(r.x + 0.5f);
-    const keel::f32 y0 = keel::floor(r.y + 0.5f);
-    const keel::f32 x1 = keel::floor(r.Right() + 0.5f);
-    const keel::f32 y1 = keel::floor(r.Bottom() + 0.5f);
-    return Rect(x0, y0, keel::max(0.0f, x1 - x0), keel::max(0.0f, y1 - y0));
-}
 
 [[nodiscard]] Color ResolveContrastInk(Color bg, Color preferredInk, const BevelPalette& bevel) noexcept {
     return (Color::ContrastRatio(bg, preferredInk) >= 4.5f)
@@ -44,74 +37,82 @@ void DrawCustomBevelFrame(
     bool sunken,
     bool etched
 ) {
-    const Rect snapped = SnapBevelRect(r);
-    if (snapped.w < 3.0f || snapped.h < 3.0f || borderWidth <= 0.0f || baseColor.a == 0u) {
+    if (borderWidth <= 0.0f || baseColor.a == 0u) {
+        return;
+    }
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const PixelGrid::SnappedPxRect s = pg.SnapRectPx(r);
+    const keel::i32 step = pg.UnitStepPx();
+    const keel::i32 wPx = s.Width();
+    const keel::i32 hPx = s.Height();
+    if (wPx < step * 3 || hPx < step * 3) {
         return;
     }
     const BevelPalette tinted = DeriveBevelPalette(baseColor, refBevel);
-    const keel::f32 x = snapped.x;
-    const keel::f32 y = snapped.y;
-    const keel::f32 w = snapped.w;
-    const keel::f32 h = snapped.h;
+    const keel::i32 x0 = s.x0;
+    const keel::i32 y0 = s.y0;
+    const keel::i32 x1 = s.x1;
+    const keel::i32 y1 = s.y1;
 
     if (etched) {
         if (borderWidth < 1.0f) {
-            DefaultStylePainter::DrawBevelFrame(canvas, snapped, tinted, /*sunken=*/true, /*thin=*/true);
+            DefaultStylePainter::DrawBevelFrame(canvas, pg.PxRectToLogical(s), tinted, /*sunken=*/true, /*thin=*/true);
             return;
         }
-        if (w < 4.0f || h < 4.0f) {
+        if (wPx < step * 4 || hPx < step * 4) {
             return;
         }
-        const keel::f32 maxG = keel::max(1.0f, keel::floor(keel::min(w, h) * 0.5f) - 1.0f);
-        const keel::f32 g = keel::min(keel::max(1.0f, keel::round(borderWidth)), maxG);
+        const keel::i32 maxGPx = keel::max(step, (keel::min(wPx, hPx) / 2) - step);
+        const keel::i32 gPx = keel::min(keel::max(step, pg.StrokePx(borderWidth)), maxGPx);
 
-        // Groove of exact thickness g in baseColor, paired with crisp 1px theme highlight edge (+1,+1)
-        canvas.DrawRect(Rect(x, y, w - 1.0f, g), baseColor);
-        canvas.DrawRect(Rect(x, y + h - 1.0f - g, w - 1.0f, g), baseColor);
-        if (h - 1.0f > g * 2.0f) {
-            canvas.DrawRect(Rect(x, y + g, g, h - 1.0f - g * 2.0f), baseColor);
-            canvas.DrawRect(Rect(x + w - 1.0f - g, y + g, g, h - 1.0f - g * 2.0f), baseColor);
+        // Groove of exact integer thickness gPx in baseColor, paired with crisp step-px theme highlight edge
+        canvas.DrawRect(pg.PxRectToLogical(x0, y0, x1 - step, y0 + gPx), baseColor);
+        canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step - gPx, x1 - step, y1 - step), baseColor);
+        if (hPx - step > gPx * 2) {
+            canvas.DrawRect(pg.PxRectToLogical(x0, y0 + gPx, x0 + gPx, y1 - step - gPx), baseColor);
+            canvas.DrawRect(pg.PxRectToLogical(x1 - step - gPx, y0 + gPx, x1 - step, y1 - step - gPx), baseColor);
         }
 
-        canvas.DrawRect(Rect(x, y + h - 1.0f, w, 1.0f), tinted.highlightOuter);
-        canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, h), tinted.highlightOuter);
-        if (w > g * 2.0f + 1.0f && h > g * 2.0f + 1.0f) {
-            canvas.DrawRect(Rect(x + g, y + g, w - g * 2.0f - 1.0f, 1.0f), tinted.highlightOuter);
-            canvas.DrawRect(Rect(x + g, y + g, 1.0f, h - g * 2.0f - 1.0f), tinted.highlightOuter);
+        canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step, x1, y1), tinted.highlightOuter);
+        canvas.DrawRect(pg.PxRectToLogical(x1 - step, y0, x1, y1), tinted.highlightOuter);
+        if (wPx > gPx * 2 + step && hPx > gPx * 2 + step) {
+            canvas.DrawRect(pg.PxRectToLogical(x0 + gPx, y0 + gPx, x1 - gPx - step, y0 + gPx + step), tinted.highlightOuter);
+            canvas.DrawRect(pg.PxRectToLogical(x0 + gPx, y0 + gPx, x0 + gPx + step, y1 - gPx - step), tinted.highlightOuter);
         }
         return;
     }
 
-    const keel::f32 bw = keel::max(1.0f, keel::round(borderWidth));
-    if (bw <= 1.5f) {
-        DefaultStylePainter::DrawBevelFrame(canvas, snapped, tinted, sunken, /*thin=*/borderWidth < 1.0f);
+    const keel::f32 bwDp = keel::max(1.0f, keel::round(borderWidth));
+    if (bwDp <= 1.5f) {
+        DefaultStylePainter::DrawBevelFrame(canvas, pg.PxRectToLogical(s), tinted, sunken, /*thin=*/borderWidth < 1.0f);
         return;
     }
 
-    // Thick 3D raised/sunken frame (bw >= 2 px): solid base body of exact thickness bw + crisp 1px 3D light/shadow edges
-    const keel::f32 effBw = keel::min(bw, keel::min(w, h) * 0.5f);
-    canvas.DrawRect(Rect(x, y, w, effBw), baseColor);
-    canvas.DrawRect(Rect(x, y + h - effBw, w, effBw), baseColor);
-    if (h > effBw * 2.0f) {
-        canvas.DrawRect(Rect(x, y + effBw, effBw, h - effBw * 2.0f), baseColor);
-        canvas.DrawRect(Rect(x + w - effBw, y + effBw, effBw, h - effBw * 2.0f), baseColor);
+    // Thick 3D raised/sunken frame (bwDp >= 2): solid base body of exact integer thickness + crisp step-px light/shadow edges
+    const keel::i32 bwPx = keel::max(step * 2, pg.StrokePx(borderWidth));
+    const keel::i32 effBw = keel::min(bwPx, keel::min(wPx, hPx) / 2);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y0, x1, y0 + effBw), baseColor);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y1 - effBw, x1, y1), baseColor);
+    if (hPx > effBw * 2) {
+        canvas.DrawRect(pg.PxRectToLogical(x0, y0 + effBw, x0 + effBw, y1 - effBw), baseColor);
+        canvas.DrawRect(pg.PxRectToLogical(x1 - effBw, y0 + effBw, x1, y1 - effBw), baseColor);
     }
 
     const Color tlOuter = sunken ? tinted.shadowOuter    : tinted.highlightOuter;
     const Color brOuter = sunken ? tinted.highlightOuter : tinted.shadowOuter;
-    canvas.DrawRect(Rect(x, y, w - 1.0f, 1.0f), tlOuter);
-    canvas.DrawRect(Rect(x, y, 1.0f, h - 1.0f), tlOuter);
-    canvas.DrawRect(Rect(x, y + h - 1.0f, w, 1.0f), brOuter);
-    canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, h), brOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y0, x1 - step, y0 + step), tlOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y0, x0 + step, y1 - step), tlOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step, x1, y1), brOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x1 - step, y0, x1, y1), brOuter);
 
-    if (w > effBw * 2.0f + 1.0f && h > effBw * 2.0f + 1.0f) {
-        const keel::f32 inOff = effBw - 1.0f;
+    if (wPx > effBw * 2 + step && hPx > effBw * 2 + step) {
+        const keel::i32 inOff = effBw - step;
         const Color tlInner = sunken ? tinted.shadowInner    : tinted.highlightInner;
         const Color brInner = sunken ? tinted.highlightInner : tinted.shadowInner;
-        canvas.DrawRect(Rect(x + inOff, y + inOff, w - inOff * 2.0f - 1.0f, 1.0f), tlInner);
-        canvas.DrawRect(Rect(x + inOff, y + inOff, 1.0f, h - inOff * 2.0f - 1.0f), tlInner);
-        canvas.DrawRect(Rect(x + inOff, y + h - effBw, w - inOff * 2.0f, 1.0f), brInner);
-        canvas.DrawRect(Rect(x + w - effBw, y + inOff, 1.0f, h - inOff * 2.0f), brInner);
+        canvas.DrawRect(pg.PxRectToLogical(x0 + inOff, y0 + inOff, x1 - inOff - step, y0 + effBw), tlInner);
+        canvas.DrawRect(pg.PxRectToLogical(x0 + inOff, y0 + inOff, x0 + effBw, y1 - inOff - step), tlInner);
+        canvas.DrawRect(pg.PxRectToLogical(x0 + inOff, y1 - effBw, x1 - inOff, y1 - inOff), brInner);
+        canvas.DrawRect(pg.PxRectToLogical(x1 - effBw, y0 + inOff, x1 - inOff, y1 - inOff), brInner);
     }
 }
 
@@ -124,31 +125,37 @@ void DefaultStylePainter::DrawBevelFrame(
     bool sunken,
     bool thin
 ) {
-    const Rect snapped = SnapBevelRect(r);
-    const keel::f32 x = snapped.x;
-    const keel::f32 y = snapped.y;
-    const keel::f32 w = snapped.w;
-    const keel::f32 h = snapped.h;
-    if (w < 3.0f || h < 3.0f) return;
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const PixelGrid::SnappedPxRect s = pg.SnapRectPx(r);
+    const keel::i32 step = pg.UnitStepPx();
+    const keel::i32 wPx = s.Width();
+    const keel::i32 hPx = s.Height();
+    if (wPx < step * 3 || hPx < step * 3) return;
+
+    const keel::i32 x0 = s.x0;
+    const keel::i32 y0 = s.y0;
+    const keel::i32 x1 = s.x1;
+    const keel::i32 y1 = s.y1;
 
     const Color tlOuter = sunken ? c.shadowInner    : c.highlightOuter;
     const Color brOuter = sunken ? c.highlightOuter : c.shadowOuter;
 
-    canvas.DrawRect(Rect(x, y, w - 1.0f, 1.0f), tlOuter);
-    canvas.DrawRect(Rect(x, y, 1.0f, h - 1.0f), tlOuter);
-    canvas.DrawRect(Rect(x, y + h - 1.0f, w, 1.0f), brOuter);
-    canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, h), brOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y0, x1 - step, y0 + step), tlOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y0, x0 + step, y1 - step), tlOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step, x1, y1), brOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x1 - step, y0, x1, y1), brOuter);
 
-    if (thin || w < 5.0f || h < 5.0f) {
+    if (thin || wPx < step * 5 || hPx < step * 5) {
         return;
     }
 
     const Color tlInner = sunken ? c.shadowOuter    : c.highlightInner;
     const Color brInner = sunken ? c.highlightInner : c.shadowInner;
-    canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, w - 3.0f, 1.0f), tlInner);
-    canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, 1.0f, h - 3.0f), tlInner);
-    canvas.DrawRect(Rect(x + 1.0f, y + h - 2.0f, w - 2.0f, 1.0f), brInner);
-    canvas.DrawRect(Rect(x + w - 2.0f, y + 1.0f, 1.0f, h - 2.0f), brInner);
+    const keel::i32 s2 = step * 2;
+    canvas.DrawRect(pg.PxRectToLogical(x0 + step, y0 + step, x1 - s2, y0 + s2), tlInner);
+    canvas.DrawRect(pg.PxRectToLogical(x0 + step, y0 + step, x0 + s2, y1 - s2), tlInner);
+    canvas.DrawRect(pg.PxRectToLogical(x0 + step, y1 - s2, x1 - step, y1 - step), brInner);
+    canvas.DrawRect(pg.PxRectToLogical(x1 - s2, y0 + step, x1 - step, y1 - step), brInner);
 }
 
 void DefaultStylePainter::DrawBevelEtchedFrame(
@@ -156,22 +163,26 @@ void DefaultStylePainter::DrawBevelEtchedFrame(
     Rect r,
     const BevelPalette& c
 ) {
-    const Rect snapped = SnapBevelRect(r);
-    const keel::f32 x = snapped.x;
-    const keel::f32 y = snapped.y;
-    const keel::f32 w = snapped.w;
-    const keel::f32 h = snapped.h;
-    if (w < 4.0f || h < 4.0f) return;
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const PixelGrid::SnappedPxRect s = pg.SnapRectPx(r);
+    const keel::i32 step = pg.UnitStepPx();
+    if (s.Width() < step * 4 || s.Height() < step * 4) return;
 
-    canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, w - 2.0f, 1.0f), c.highlightOuter);
-    canvas.DrawRect(Rect(x + 1.0f, y + 1.0f, 1.0f, h - 2.0f), c.highlightOuter);
-    canvas.DrawRect(Rect(x, y + h - 1.0f, w, 1.0f), c.highlightOuter);
-    canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, h), c.highlightOuter);
+    const keel::i32 x0 = s.x0;
+    const keel::i32 y0 = s.y0;
+    const keel::i32 x1 = s.x1;
+    const keel::i32 y1 = s.y1;
+    const keel::i32 s2 = step * 2;
 
-    canvas.DrawRect(Rect(x, y, w - 1.0f, 1.0f), c.shadowInner);
-    canvas.DrawRect(Rect(x, y, 1.0f, h - 1.0f), c.shadowInner);
-    canvas.DrawRect(Rect(x + 1.0f, y + h - 2.0f, w - 2.0f, 1.0f), c.shadowInner);
-    canvas.DrawRect(Rect(x + w - 2.0f, y + 1.0f, 1.0f, h - 2.0f), c.shadowInner);
+    canvas.DrawRect(pg.PxRectToLogical(x0 + step, y0 + step, x1 - step, y0 + s2), c.highlightOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x0 + step, y0 + step, x0 + s2, y1 - step), c.highlightOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step, x1, y1), c.highlightOuter);
+    canvas.DrawRect(pg.PxRectToLogical(x1 - step, y0, x1, y1), c.highlightOuter);
+
+    canvas.DrawRect(pg.PxRectToLogical(x0, y0, x1 - step, y0 + step), c.shadowInner);
+    canvas.DrawRect(pg.PxRectToLogical(x0, y0, x0 + step, y1 - step), c.shadowInner);
+    canvas.DrawRect(pg.PxRectToLogical(x0 + step, y1 - s2, x1 - step, y1 - step), c.shadowInner);
+    canvas.DrawRect(pg.PxRectToLogical(x1 - s2, y0 + step, x1 - step, y1 - step), c.shadowInner);
 }
 
 void DefaultStylePainter::DrawBevelDividerH(
@@ -181,12 +192,14 @@ void DefaultStylePainter::DrawBevelDividerH(
     keel::f32 y,
     const BevelPalette& c
 ) {
-    const keel::f32 w = keel::floor(x1 - x0);
-    if (w <= 0.0f) return;
-    const keel::f32 fx = keel::floor(x0);
-    const keel::f32 fy = keel::floor(y);
-    canvas.DrawRect(Rect(fx, fy, w, 1.0f), c.shadowInner);
-    canvas.DrawRect(Rect(fx, fy + 1.0f, w, 1.0f), c.highlightOuter);
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const keel::i32 px0 = pg.SnapXToPx(x0);
+    const keel::i32 px1 = pg.SnapXToPx(x1);
+    if (px1 <= px0) return;
+    const keel::i32 py = pg.SnapYToPx(y);
+    const keel::i32 step = pg.UnitStepPx();
+    canvas.DrawRect(pg.PxRectToLogical(px0, py, px1, py + step), c.shadowInner);
+    canvas.DrawRect(pg.PxRectToLogical(px0, py + step, px1, py + step * 2), c.highlightOuter);
 }
 
 void DefaultStylePainter::DrawBevelDividerV(
@@ -196,12 +209,14 @@ void DefaultStylePainter::DrawBevelDividerV(
     keel::f32 y1,
     const BevelPalette& c
 ) {
-    const keel::f32 h = keel::floor(y1 - y0);
-    if (h <= 0.0f) return;
-    const keel::f32 fx = keel::floor(x);
-    const keel::f32 fy = keel::floor(y0);
-    canvas.DrawRect(Rect(fx, fy, 1.0f, h), c.shadowInner);
-    canvas.DrawRect(Rect(fx + 1.0f, fy, 1.0f, h), c.highlightOuter);
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const keel::i32 py0 = pg.SnapYToPx(y0);
+    const keel::i32 py1 = pg.SnapYToPx(y1);
+    if (py1 <= py0) return;
+    const keel::i32 px = pg.SnapXToPx(x);
+    const keel::i32 step = pg.UnitStepPx();
+    canvas.DrawRect(pg.PxRectToLogical(px, py0, px + step, py1), c.shadowInner);
+    canvas.DrawRect(pg.PxRectToLogical(px + step, py0, px + step * 2, py1), c.highlightOuter);
 }
 
 void DefaultStylePainter::DrawBevelSliderThumb(
@@ -325,19 +340,25 @@ void DrawDirectionalSheen(
     bool includeBottomShade
 ) {
     if (r.w < 6.0f || r.h < 6.0f) return;
-    const keel::f32 inset = keel::clamp(radius * 0.65f, 1.0f, r.w * 0.25f);
-    const keel::f32 x0 = r.x + inset;
-    const keel::f32 x1 = r.Right() - inset;
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const PixelGrid::SnappedPxRect sp = pg.SnapRectPx(r);
+    const keel::i32 step = pg.UnitStepPx();
+    const keel::f32 stepDp = pg.PxToDp(step);
+    const keel::f32 inset = keel::clamp(radius * 0.65f, stepDp, r.w * 0.25f);
+    const keel::f32 x0 = pg.SnapEdgeX(r.x + inset);
+    const keel::f32 x1 = pg.SnapEdgeX(r.Right() - inset);
     if (x1 <= x0) return;
 
     const bool isDark = (theme.mode == ThemeMode::Dark);
     if (!pressed) {
         const Color hi = theme.bevel.highlightOuter.WithAlphaF(isDark ? 0.14f : 0.45f);
-        canvas.DrawLine(Vec2(x0, r.y + 0.75f), Vec2(x1, r.y + 0.75f), hi, 1.0f);
+        const keel::f32 topY = pg.PxToLogicalY(sp.y0) + stepDp * 0.5f;
+        canvas.DrawLine(Vec2(x0, topY), Vec2(x1, topY), hi, stepDp);
     }
     if (includeBottomShade) {
         const Color lo = theme.bevel.shadowOuter.WithAlphaF(isDark ? 0.34f : 0.14f);
-        canvas.DrawLine(Vec2(x0, r.Bottom() - 0.75f), Vec2(x1, r.Bottom() - 0.75f), lo, 1.0f);
+        const keel::f32 botY = pg.PxToLogicalY(sp.y1) - stepDp * 0.5f;
+        canvas.DrawLine(Vec2(x0, botY), Vec2(x1, botY), lo, stepDp);
     }
 }
 
@@ -587,6 +608,8 @@ void DefaultStylePainter::DrawSurfaceBg(
 ) const {
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
 
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const Rect surfRect = pg.SnapRect(p.rect);
     const bool roundedOverride = p.explicitRadius && (p.radius > 0.01f);
     const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !roundedOverride;
     const keel::f32 effRadius = useBevel ? 0.0f : p.radius;
@@ -598,7 +621,7 @@ void DefaultStylePainter::DrawSurfaceBg(
             if (p.role == SurfaceRole::Raised) effElev = Elevation::Md;
             else if (p.role == SurfaceRole::Popup) effElev = Elevation::Lg;
         }
-        DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
+        DrawShadowForRect(canvas, theme, surfRect, effRadius, effElev, p.shadowScale);
 
         const bool isViewportBackdrop =
             !hasExplicitGrad &&
@@ -608,33 +631,33 @@ void DefaultStylePainter::DrawSurfaceBg(
             (p.borderWidth <= 0.0f);
         if (theme.chrome.frame == FrameTreatment::Glass && p.role != SurfaceRole::None) {
             if (isViewportBackdrop) {
-                DrawAmbientStudioBackdrop(canvas, theme, p.rect, p.bg);
+                DrawAmbientStudioBackdrop(canvas, theme, surfRect, p.bg);
                 return;
             }
             const GlassParams gp = BuildSurfaceGlassParams(theme, p);
-            canvas.DrawGlassRect(p.rect, effRadius, gp);
+            canvas.DrawGlassRect(surfRect, effRadius, gp);
             return;
         }
 
         if (hasExplicitGrad) {
-            canvas.DrawGradientRoundRect(p.rect, effRadius, *p.bgGradient, Color::Transparent(), 0.0f);
+            canvas.DrawGradientRoundRect(surfRect, effRadius, *p.bgGradient, Color::Transparent(), 0.0f);
             return;
         }
 
         if (theme.chrome.frame == FrameTreatment::GradientSurface && p.role != SurfaceRole::None) {
             if (isViewportBackdrop) {
-                DrawAmbientStudioBackdrop(canvas, theme, p.rect, p.bg);
+                DrawAmbientStudioBackdrop(canvas, theme, surfRect, p.bg);
             } else {
                 const Gradient surfGrad = BuildLuminousSurfaceGradient(theme, p.role, p.bg);
-                canvas.DrawGradientRoundRect(p.rect, effRadius, surfGrad, Color::Transparent(), 0.0f);
+                canvas.DrawGradientRoundRect(surfRect, effRadius, surfGrad, Color::Transparent(), 0.0f);
             }
             return;
         }
 
         if (effRadius > 0.0f) {
-            canvas.DrawRoundRect(p.rect, effRadius, p.bg, Color::Transparent(), 0.0f);
+            canvas.DrawRoundRect(surfRect, effRadius, p.bg, Color::Transparent(), 0.0f);
         } else {
-            canvas.DrawRect(useBevel ? SnapBevelRect(p.rect) : p.rect, p.bg);
+            canvas.DrawRect(surfRect, p.bg);
         }
     }
 }
@@ -646,7 +669,8 @@ void DefaultStylePainter::DrawSurfaceFrame(
 ) const {
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f || p.role == SurfaceRole::None) return;
 
-    const Rect r = p.rect;
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const Rect r = pg.SnapRect(p.rect);
     const bool roundedOverride = p.explicitRadius && (p.radius > 0.01f);
     const bool useBevel = (theme.chrome.frame == FrameTreatment::Bevel3D) && !roundedOverride;
 
@@ -655,32 +679,36 @@ void DefaultStylePainter::DrawSurfaceFrame(
         if (p.borderWidth <= 0.0f || p.border.a == 0u) return;
         const bool isEtchedChrome = (theme.chrome.divider == DividerStyle::Etched3D);
         const bool thinSeam = (p.borderWidth < 1.0f);
+        const keel::i32 step = pg.UnitStepPx();
         const keel::f32 seamThickness = (isEtchedChrome && !thinSeam)
-            ? keel::max(2.0f, keel::round(p.borderWidth))
-            : p.borderWidth;
+            ? keel::max(pg.PxToDp(step * 2), pg.StrokeDp(p.borderWidth))
+            : pg.StrokeDp(p.borderWidth);
         auto drawEdge = [&](Vec2 a, Vec2 b) {
             const bool horiz = (keel::abs(a.y - b.y) < 0.01f);
             if (isEtchedChrome && !thinSeam) {
                 const BevelPalette seamPal = p.explicitBorder
                     ? DeriveBevelPalette(p.border, theme.bevel)
                     : theme.bevel;
-                if (seamThickness <= 2.01f) {
+                if (p.borderWidth <= 2.01f) {
                     if (horiz) {
                         DrawBevelDividerH(canvas, a.x, b.x, a.y, seamPal);
                     } else {
                         DrawBevelDividerV(canvas, a.x, a.y, b.y, seamPal);
                     }
                 } else {
-                    const Rect band = horiz
-                        ? Rect(keel::floor(a.x), keel::floor(a.y), keel::floor(b.x - a.x), seamThickness)
-                        : Rect(keel::floor(a.x), keel::floor(a.y), seamThickness, keel::floor(b.y - a.y));
-                    canvas.DrawRect(band, p.border);
+                    const keel::i32 thickPx = keel::max(step * 2, pg.StrokePx(p.borderWidth));
+                    const keel::i32 ax = pg.SnapXToPx(keel::min(a.x, b.x));
+                    const keel::i32 bx = pg.SnapXToPx(keel::max(a.x, b.x));
+                    const keel::i32 ay = pg.SnapYToPx(keel::min(a.y, b.y));
+                    const keel::i32 by = pg.SnapYToPx(keel::max(a.y, b.y));
                     if (horiz) {
-                        canvas.DrawRect(Rect(band.x, band.y, band.w, 1.0f), seamPal.shadowOuter);
-                        canvas.DrawRect(Rect(band.x, band.Bottom() - 1.0f, band.w, 1.0f), seamPal.highlightOuter);
+                        canvas.DrawRect(pg.PxRectToLogical(ax, ay, bx, ay + thickPx), p.border);
+                        canvas.DrawRect(pg.PxRectToLogical(ax, ay, bx, ay + step), seamPal.shadowOuter);
+                        canvas.DrawRect(pg.PxRectToLogical(ax, ay + thickPx - step, bx, ay + thickPx), seamPal.highlightOuter);
                     } else {
-                        canvas.DrawRect(Rect(band.x, band.y, 1.0f, band.h), seamPal.shadowOuter);
-                        canvas.DrawRect(Rect(band.Right() - 1.0f, band.y, 1.0f, band.h), seamPal.highlightOuter);
+                        canvas.DrawRect(pg.PxRectToLogical(ax, ay, ax + thickPx, by), p.border);
+                        canvas.DrawRect(pg.PxRectToLogical(ax, ay, ax + step, by), seamPal.shadowOuter);
+                        canvas.DrawRect(pg.PxRectToLogical(ax + thickPx - step, ay, ax + thickPx, by), seamPal.highlightOuter);
                     }
                 }
             } else if (!isEtchedChrome) {
@@ -689,7 +717,7 @@ void DefaultStylePainter::DrawSurfaceFrame(
                 const Rect lineRect = horiz
                     ? Rect(keel::min(a.x, b.x), a.y, keel::abs(b.x - a.x), seamThickness)
                     : Rect(a.x, keel::min(a.y, b.y), seamThickness, keel::abs(b.y - a.y));
-                canvas.DrawRect(lineRect, p.border);
+                canvas.DrawRect(pg.SnapRect(lineRect), p.border);
             }
         };
         switch (p.dockSeam) {
@@ -753,9 +781,10 @@ void DefaultStylePainter::DrawSurfaceFrame(
 
     const bool hasBorderGrad = (p.borderGradient != nullptr && p.borderGradient->HasVisibleColor());
     if (p.borderWidth > 0.0f && (p.border.a > 0u || hasBorderGrad)) {
-        const keel::f32 bw = (theme.chrome.frame == FrameTreatment::HardShadow)
+        const keel::f32 rawBw = (theme.chrome.frame == FrameTreatment::HardShadow)
             ? keel::max(p.borderWidth, 1.5f * keel::max(theme.borderScale, 0.5f))
             : p.borderWidth;
+        const keel::f32 bw = pg.StrokeDp(rawBw);
         if (hasBorderGrad) {
             canvas.DrawGradientRoundRect(r, p.radius, Gradient{}, p.border, bw, p.borderGradient);
         } else if (theme.chrome.frame == FrameTreatment::GradientSurface && !p.explicitBorder) {
@@ -790,6 +819,8 @@ void DefaultStylePainter::DrawFrame(
 ) const {
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
 
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const Rect frameRect = pg.SnapRect(p.rect);
     const bool isInput = (kind == FrameKind::Input);
     const bool roundedOverride = p.explicitRadius && (p.radius > 0.01f);
     const bool useBevel = isInput
@@ -810,7 +841,7 @@ void DefaultStylePainter::DrawFrame(
         !p.disabled && !p.pressed && !p.active && p.bg.a > 0u) {
         effElev = Elevation::Sm;
     }
-    DrawShadowForRect(canvas, theme, p.rect, effRadius, effElev, p.shadowScale);
+    DrawShadowForRect(canvas, theme, frameRect, effRadius, effElev, p.shadowScale);
 
     // Non-Bevel path: Flat (Modern), Directional1px (Fluent), HardShadow (Brutalist), or rounded override
     if (!useBevel) {
@@ -818,19 +849,20 @@ void DefaultStylePainter::DrawFrame(
             const Color baseBorder = p.disabled
                 ? p.border
                 : theme.palette.border;
-            const keel::f32 baseBw = (p.borderWidth > 0.0f) ? keel::min(p.borderWidth, 1.0f) : 1.0f;
-            canvas.DrawRoundRect(p.rect, effRadius, p.bg, baseBorder, baseBw);
+            const keel::f32 baseBw = pg.StrokeDp((p.borderWidth > 0.0f) ? keel::min(p.borderWidth, 1.0f) : 1.0f);
+            canvas.DrawRoundRect(frameRect, effRadius, p.bg, baseBorder, baseBw);
 
-            if (p.rect.w > 6.0f && p.rect.h > 6.0f) {
-                const keel::f32 inset = keel::clamp(effRadius * 0.55f, 1.0f, p.rect.w * 0.25f);
-                const keel::f32 x0 = p.rect.x + inset;
-                const keel::f32 x1 = p.rect.Right() - inset;
+            if (frameRect.w > 6.0f && frameRect.h > 6.0f) {
+                const keel::f32 inset = keel::clamp(effRadius * 0.55f, 1.0f, frameRect.w * 0.25f);
+                const keel::f32 x0 = frameRect.x + inset;
+                const keel::f32 x1 = frameRect.Right() - inset;
                 if (x1 > x0) {
                     const Color accentBar = p.focused && !p.disabled
                         ? ((p.accent.a > 0u) ? p.accent : theme.palette.focusRing)
                         : (p.disabled ? theme.palette.border.WithAlphaF(theme.disabledOpacity) : theme.palette.borderHover);
-                    const keel::f32 barH = (p.focused && !p.disabled) ? 2.0f : 1.0f;
-                    const keel::f32 barY = p.rect.Bottom() - barH * 0.5f;
+                    const keel::i32 barPx = pg.StrokePx((p.focused && !p.disabled) ? 2.0f : 1.0f);
+                    const keel::f32 barH = pg.PxToDp(barPx);
+                    const keel::f32 barY = frameRect.Bottom() - barH * 0.5f;
                     canvas.DrawLine(Vec2(x0, barY), Vec2(x1, barY), accentBar, barH);
                 }
             }
@@ -875,7 +907,7 @@ void DefaultStylePainter::DrawFrame(
 
         if (theme.chrome.frame == FrameTreatment::Glass && (p.bg.a > 0u || effBgGrad != nullptr)) {
             const GlassParams gp = BuildFrameGlassParams(theme, kind, p, effBgGrad);
-            canvas.DrawGlassRect(p.rect, effRadius, gp);
+            canvas.DrawGlassRect(frameRect, effRadius, gp);
             return;
         }
 
@@ -895,32 +927,36 @@ void DefaultStylePainter::DrawFrame(
             }
             effBdrCol = bdrSeed;
         }
+        const keel::f32 snappedBw = (effBw > 0.0f) ? pg.StrokeDp(effBw) : 0.0f;
 
         if (effBgGrad != nullptr || effBdrGrad != nullptr) {
             const Gradient fillArg = (effBgGrad != nullptr)
                 ? *effBgGrad
                 : ((p.bg.a > 0u) ? Gradient::Linear(p.bg, p.bg, 180.0f) : Gradient{});
-            canvas.DrawGradientRoundRect(p.rect, effRadius, fillArg, effBdrCol, effBw, effBdrGrad);
+            canvas.DrawGradientRoundRect(frameRect, effRadius, fillArg, effBdrCol, snappedBw, effBdrGrad);
             return;
         }
 
         if (effRadius > 0.0f) {
-            canvas.DrawRoundRect(p.rect, effRadius, p.bg, p.border, p.borderWidth);
-        } else if (p.borderWidth > 0.0f && p.border.a > 0u) {
-            canvas.DrawRoundRect(p.rect, 0.0f, p.bg, p.border, p.borderWidth);
+            canvas.DrawRoundRect(frameRect, effRadius, p.bg, p.border, snappedBw);
+        } else if (snappedBw > 0.0f && p.border.a > 0u) {
+            canvas.DrawRoundRect(frameRect, 0.0f, p.bg, p.border, snappedBw);
         } else if (p.bg.a > 0u) {
-            canvas.DrawRect(p.rect, p.bg);
+            canvas.DrawRect(frameRect, p.bg);
         }
 
         if (theme.chrome.frame == FrameTreatment::Directional1px && !p.disabled && p.bg.a > 0u &&
             (kind == FrameKind::Button || kind == FrameKind::DropdownButton)) {
-            DrawDirectionalSheen(canvas, theme, p.rect, effRadius, p.pressed || p.active, /*includeBottomShade=*/true);
+            DrawDirectionalSheen(canvas, theme, frameRect, effRadius, p.pressed || p.active, /*includeBottomShade=*/true);
         }
         return;
     }
 
     // FrameTreatment::Bevel3D / FieldTreatment::Sunken3D path
-    const Rect bevelRect = SnapBevelRect(p.rect);
+    const PixelGrid::SnappedPxRect bevelPx = pg.SnapRectPx(p.rect);
+    const Rect bevelRect = pg.PxRectToLogical(bevelPx);
+    const keel::i32 step = pg.UnitStepPx();
+    const keel::f32 stepDp = pg.PxToDp(step);
     const Color effBg = (isInput && p.disabled && p.bg.a > 0u) ? theme.palette.surface : p.bg;
     if (effBg.a > 0u) {
         canvas.DrawRect(bevelRect, effBg);
@@ -935,19 +971,19 @@ void DefaultStylePainter::DrawFrame(
             } else {
                 DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/true, thinBevel);
             }
-            if ((p.focused || p.hasStatusAccent) && !p.disabled && bevelRect.w > 6.0f && bevelRect.h > 6.0f) {
-                const keel::f32 ringInset = hasCustomBevel
-                    ? keel::max(2.0f, keel::round(p.borderWidth))
-                    : (thinBevel ? 1.0f : 2.0f);
-                if (bevelRect.w > ringInset * 2.0f + 2.0f && bevelRect.h > ringInset * 2.0f + 2.0f) {
+            if ((p.focused || p.hasStatusAccent) && !p.disabled && bevelPx.Width() > step * 6 && bevelPx.Height() > step * 6) {
+                const keel::i32 ringInsetPx = hasCustomBevel
+                    ? keel::max(step * 2, pg.StrokePx(p.borderWidth))
+                    : (thinBevel ? step : (step * 2));
+                if (bevelPx.Width() > ringInsetPx * 2 + step * 2 && bevelPx.Height() > ringInsetPx * 2 + step * 2) {
                     canvas.DrawRoundRect(
-                        Rect(
-                            bevelRect.x + ringInset,
-                            bevelRect.y + ringInset,
-                            bevelRect.w - ringInset * 2.0f,
-                            bevelRect.h - ringInset * 2.0f
+                        pg.PxRectToLogical(
+                            bevelPx.x0 + ringInsetPx,
+                            bevelPx.y0 + ringInsetPx,
+                            bevelPx.x1 - ringInsetPx,
+                            bevelPx.y1 - ringInsetPx
                         ),
-                        0.0f, Color::Transparent(), (p.accent.a > 0u) ? p.accent : theme.palette.focusRing, 1.0f
+                        0.0f, Color::Transparent(), (p.accent.a > 0u) ? p.accent : theme.palette.focusRing, stepDp
                     );
                 }
             }
@@ -964,12 +1000,19 @@ void DefaultStylePainter::DrawFrame(
             } else if (effBg.a > 0u) {
                 DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/(!p.disabled && (p.pressed || p.active)), thinBevel);
             }
-            if (p.focused && !p.disabled && bevelRect.w > 8.0f && bevelRect.h > 8.0f) {
-                const keel::f32 focusInset = hasCustomBevel ? keel::max(3.0f, keel::round(p.borderWidth) + 1.0f) : 3.0f;
-                if (bevelRect.w > focusInset * 2.0f + 2.0f && bevelRect.h > focusInset * 2.0f + 2.0f) {
+            if (p.focused && !p.disabled && bevelPx.Width() > step * 8 && bevelPx.Height() > step * 8) {
+                const keel::i32 focusInsetPx = hasCustomBevel
+                    ? keel::max(step * 3, pg.StrokePx(p.borderWidth) + step)
+                    : (step * 3);
+                if (bevelPx.Width() > focusInsetPx * 2 + step * 2 && bevelPx.Height() > focusInsetPx * 2 + step * 2) {
                     canvas.DrawRoundRect(
-                        Rect(bevelRect.x + focusInset, bevelRect.y + focusInset, bevelRect.w - focusInset * 2.0f, bevelRect.h - focusInset * 2.0f),
-                        0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f
+                        pg.PxRectToLogical(
+                            bevelPx.x0 + focusInsetPx,
+                            bevelPx.y0 + focusInsetPx,
+                            bevelPx.x1 - focusInsetPx,
+                            bevelPx.y1 - focusInsetPx
+                        ),
+                        0.0f, Color::Transparent(), theme.palette.focusRing, stepDp
                     );
                 }
             }
@@ -981,10 +1024,15 @@ void DefaultStylePainter::DrawFrame(
             } else if (!p.disabled && p.hovered) {
                 DrawBevelFrame(canvas, bevelRect, theme.bevel, /*sunken=*/false, /*thin=*/true);
             }
-            if (p.focused && !p.disabled && bevelRect.w > 6.0f && bevelRect.h > 6.0f) {
+            if (p.focused && !p.disabled && bevelPx.Width() > step * 6 && bevelPx.Height() > step * 6) {
                 canvas.DrawRoundRect(
-                    Rect(bevelRect.x + 2.0f, bevelRect.y + 2.0f, bevelRect.w - 4.0f, bevelRect.h - 4.0f),
-                    0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f
+                    pg.PxRectToLogical(
+                        bevelPx.x0 + step * 2,
+                        bevelPx.y0 + step * 2,
+                        bevelPx.x1 - step * 2,
+                        bevelPx.y1 - step * 2
+                    ),
+                    0.0f, Color::Transparent(), theme.palette.focusRing, stepDp
                 );
             }
             break;
@@ -1041,14 +1089,16 @@ keel::f32 DefaultStylePainter::DrawFieldButton(
     const bool useFramed = (theme.chrome.fieldButton == FieldButtonStyle::Framed);
 
     if (useRaised || useFramed) {
-        const keel::f32 inset = useRaised ? 2.0f : 1.0f;
-        const keel::f32 dropBtnW = keel::max(18.0f, keel::min(fieldRect.h - inset * 2.0f, paddingX + iconSize + 4.0f));
-        const Rect dropBtnRect(
-            keel::floor(fieldRect.Right() - inset - dropBtnW),
-            keel::floor(fieldRect.y + inset),
-            keel::floor(dropBtnW),
-            keel::max(4.0f, keel::floor(fieldRect.h - inset * 2.0f))
-        );
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const PixelGrid::SnappedPxRect fp = pg.SnapRectPx(fieldRect);
+        const keel::i32 step = pg.UnitStepPx();
+        const keel::i32 insetPx = useRaised ? (step * 2) : step;
+        const keel::i32 availHPx = keel::max(step * 4, fp.Height() - insetPx * 2);
+        const keel::f32 rawBtnW = keel::max(18.0f, keel::min(pg.PxToDp(availHPx), paddingX + iconSize + 4.0f));
+        const keel::i32 btnWPx = keel::max(step * 4, pg.StrokePx(rawBtnW));
+        const keel::i32 bx1 = fp.x1 - insetPx;
+        const keel::i32 bx0 = keel::max(fp.x0 + insetPx, bx1 - btnWPx);
+        const Rect dropBtnRect = pg.PxRectToLogical(bx0, fp.y0 + insetPx, bx1, fp.y0 + insetPx + availHPx);
         const Color btnBg = disabled
             ? pal.surface.WithAlphaF(theme.disabledOpacity)
             : ((pressed || active) ? pal.surfaceActive : (hovered ? pal.surfaceHover : pal.surface));
@@ -1096,8 +1146,10 @@ void DefaultStylePainter::DrawDropdownSurface(
     if (popupRect.w <= 0.0f || popupRect.h <= 0.0f) return;
     const auto& pal = theme.palette;
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
-        DrawShadowForRect(canvas, theme, popupRect, 0.0f, Elevation::Md, 1.0f);
-        canvas.DrawRoundRect(popupRect, 0.0f, pal.inputBackground, theme.bevel.shadowOuter, 1.0f);
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const Rect sr = pg.SnapRect(popupRect);
+        DrawShadowForRect(canvas, theme, sr, 0.0f, Elevation::Md, 1.0f);
+        canvas.DrawRoundRect(sr, 0.0f, pal.inputBackground, theme.bevel.shadowOuter, pg.UnitStepDp());
         return;
     }
     DrawSurface(canvas, theme, SurfacePaintParams{
@@ -1124,25 +1176,35 @@ void DefaultStylePainter::DrawSliderTick(
 ) const {
     const SliderTickStyle tickStyle = theme.sliderStyle.tickStyle;
     if (tickStyle == SliderTickStyle::Line) {
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const keel::i32 step = pg.UnitStepPx();
+        const keel::i32 lenPx = step * 3;
         const Color tickCol = disabled ? theme.palette.textDisabled : theme.palette.border;
         const keel::f32 tickOffset = keel::round(keel::max(6.0f, thumbSize * 0.75f));
         if (vertical) {
-            canvas.DrawRect(Rect(keel::floor(crossCoord + tickOffset), keel::floor(tickCenter.y), 3.0f, 1.0f), tickCol);
+            const keel::i32 tx = pg.SnapXToPx(crossCoord + tickOffset);
+            const keel::i32 ty = pg.SnapYToPx(tickCenter.y);
+            canvas.DrawRect(pg.PxRectToLogical(tx, ty, tx + lenPx, ty + step), tickCol);
         } else {
-            canvas.DrawRect(Rect(keel::floor(tickCenter.x), keel::floor(crossCoord + tickOffset), 1.0f, 3.0f), tickCol);
+            const keel::i32 tx = pg.SnapXToPx(tickCenter.x);
+            const keel::i32 ty = pg.SnapYToPx(crossCoord + tickOffset);
+            canvas.DrawRect(pg.PxRectToLogical(tx, ty, tx + step, ty + lenPx), tickCol);
         }
         return;
     }
     if (tickStyle == SliderTickStyle::Notch) {
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const keel::i32 notchPx = pg.StrokePx(1.5f);
+        const keel::f32 notchDp = pg.PxToDp(notchPx);
         const keel::f32 span = keel::max(tickSize + 4.0f, 8.0f);
         const keel::f32 halfSpan = span * 0.5f;
         const Color notchCol = disabled ? color.WithAlphaF(theme.disabledOpacity) : color;
         if (vertical) {
-            const keel::f32 y = keel::floor(tickCenter.y) + 0.5f;
-            canvas.DrawLine(Vec2(crossCoord - halfSpan, y), Vec2(crossCoord + halfSpan, y), notchCol, 1.5f);
+            const keel::f32 y = pg.SnapLineCenterY(tickCenter.y, notchPx);
+            canvas.DrawLine(Vec2(crossCoord - halfSpan, y), Vec2(crossCoord + halfSpan, y), notchCol, notchDp);
         } else {
-            const keel::f32 x = keel::floor(tickCenter.x) + 0.5f;
-            canvas.DrawLine(Vec2(x, crossCoord - halfSpan), Vec2(x, crossCoord + halfSpan), notchCol, 1.5f);
+            const keel::f32 x = pg.SnapLineCenterX(tickCenter.x, notchPx);
+            canvas.DrawLine(Vec2(x, crossCoord - halfSpan), Vec2(x, crossCoord + halfSpan), notchCol, notchDp);
         }
         return;
     }
@@ -1165,15 +1227,26 @@ void DefaultStylePainter::DrawDivider(
     const bool isHoriz = keel::abs(p1.x - p0.x) >= keel::abs(p1.y - p0.y);
     if (theme.chrome.divider == DividerStyle::Etched3D) {
         if (isHoriz) {
-            DrawBevelDividerH(canvas, keel::min(p0.x, p1.x), keel::max(p0.x, p1.x), keel::floor(p0.y), theme.bevel);
+            DrawBevelDividerH(canvas, keel::min(p0.x, p1.x), keel::max(p0.x, p1.x), p0.y, theme.bevel);
         } else {
-            DrawBevelDividerV(canvas, keel::floor(p0.x), keel::min(p0.y, p1.y), keel::max(p0.y, p1.y), theme.bevel);
+            DrawBevelDividerV(canvas, p0.x, keel::min(p0.y, p1.y), keel::max(p0.y, p1.y), theme.bevel);
         }
         return;
     }
     if (fallbackColor.a == 0u || thickness <= 0.0f) return;
+    const PixelGrid pg = PixelGrid::From(canvas);
     const keel::f32 effThick = (theme.chrome.divider == DividerStyle::Bold) ? keel::max(thickness, 2.0f) : thickness;
-    canvas.DrawLine(p0, p1, fallbackColor, effThick);
+    const keel::i32 thickPx = (effThick <= 1.05f) ? pg.UnitStepPx() : pg.StrokePx(effThick);
+    const keel::f32 snappedThick = (effThick <= 1.05f) ? pg.PxToDp(thickPx) : effThick;
+    if (keel::abs(p1.y - p0.y) < 0.01f) {
+        const keel::f32 sy = pg.SnapLineCenterY(p0.y, thickPx);
+        canvas.DrawLine(Vec2(pg.SnapEdgeX(p0.x), sy), Vec2(pg.SnapEdgeX(p1.x), sy), fallbackColor, snappedThick);
+    } else if (keel::abs(p1.x - p0.x) < 0.01f) {
+        const keel::f32 sx = pg.SnapLineCenterX(p0.x, thickPx);
+        canvas.DrawLine(Vec2(sx, pg.SnapEdgeY(p0.y)), Vec2(sx, pg.SnapEdgeY(p1.y)), fallbackColor, snappedThick);
+    } else {
+        canvas.DrawLine(p0, p1, fallbackColor, snappedThick);
+    }
 }
 
 void DefaultStylePainter::DrawControlText(
@@ -1416,22 +1489,27 @@ void DefaultStylePainter::DrawProgressBar(
     keel::f32 cornerRadius,
     bool disabled
 ) const {
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const PixelGrid::SnappedPxRect trackPx = pg.SnapRectPx(trackRect);
+    const Rect snappedTrack = pg.PxRectToLogical(trackPx);
+    const keel::i32 step = pg.UnitStepPx();
     const bool isSeg3D = (theme.chrome.progressFill == ProgressFillStyle::Segmented);
     const bool sharp = isSeg3D || (theme.chrome.frame == FrameTreatment::Bevel3D) || (cornerRadius <= 0.01f);
-    const keel::f32 barDim = vertical ? trackRect.w : trackRect.h;
+    const keel::f32 barDim = vertical ? snappedTrack.w : snappedTrack.h;
 
     if (isSeg3D) {
         const Color bg = disabled ? theme.palette.background.WithAlphaF(theme.disabledOpacity) : theme.palette.background;
-        canvas.DrawRect(trackRect, bg);
-        DrawBevelFrame(canvas, trackRect, theme.bevel, /*sunken=*/true, /*thin=*/false);
+        canvas.DrawRect(snappedTrack, bg);
+        DrawBevelFrame(canvas, snappedTrack, theme.bevel, /*sunken=*/true, /*thin=*/false);
 
-        const Rect inner(
-            trackRect.x + 2.0f,
-            trackRect.y + 2.0f,
-            keel::max(0.0f, trackRect.w - 4.0f),
-            keel::max(0.0f, trackRect.h - 4.0f)
+        const keel::i32 padPx = step * 2;
+        if (trackPx.Width() < padPx * 2 + step * 2 || trackPx.Height() < padPx * 2 + step * 2) return;
+        const Rect inner = pg.PxRectToLogical(
+            trackPx.x0 + padPx,
+            trackPx.y0 + padPx,
+            trackPx.x1 - padPx,
+            trackPx.y1 - padPx
         );
-        if (inner.w < 2.0f || inner.h < 2.0f) return;
 
         const keel::f32 blockLen = 8.0f;
         const keel::f32 blockGap = 2.0f;
@@ -1446,11 +1524,9 @@ void DefaultStylePainter::DrawProgressBar(
             for (keel::i32 b = 0; b < 3; ++b) {
                 const keel::f32 pos = offset + keel::as<keel::f32>(b) * stride;
                 if (vertical) {
-                    const keel::f32 by = keel::floor(inner.Bottom() - pos - blockLen);
-                    canvas.DrawRect(Rect(inner.x, by, inner.w, blockLen), fillColor);
+                    canvas.DrawRect(pg.SnapRect(Rect(inner.x, inner.Bottom() - pos - blockLen, inner.w, blockLen)), fillColor);
                 } else {
-                    const keel::f32 bx = keel::floor(inner.x + pos);
-                    canvas.DrawRect(Rect(bx, inner.y, blockLen, inner.h), fillColor);
+                    canvas.DrawRect(pg.SnapRect(Rect(inner.x + pos, inner.y, blockLen, inner.h)), fillColor);
                 }
             }
         } else {
@@ -1460,9 +1536,9 @@ void DefaultStylePainter::DrawProgressBar(
                 const keel::f32 seg = keel::min(blockLen, fillLen - p);
                 if (seg >= 2.0f) {
                     if (vertical) {
-                        canvas.DrawRect(Rect(inner.x, keel::floor(inner.Bottom() - p - seg), inner.w, keel::floor(seg)), fillColor);
+                        canvas.DrawRect(pg.SnapRect(Rect(inner.x, inner.Bottom() - p - seg, inner.w, seg)), fillColor);
                     } else {
-                        canvas.DrawRect(Rect(keel::floor(inner.x + p), inner.y, keel::floor(seg), inner.h), fillColor);
+                        canvas.DrawRect(pg.SnapRect(Rect(inner.x + p, inner.y, seg, inner.h)), fillColor);
                     }
                 }
             }
@@ -1482,29 +1558,29 @@ void DefaultStylePainter::DrawProgressBar(
             canvas.DrawRoundRect(fillR, r, fillColor);
         }
     };
-    canvas.DrawRoundRect(trackRect, r, trackBg, trackBorder, 1.0f);
+    canvas.DrawRoundRect(snappedTrack, r, trackBg, trackBorder, pg.UnitStepDp());
     if (indeterminate) {
         const keel::f32 pingPong = 1.0f - keel::abs(keel::fmod(animPhase * 2.0f, 2.0f) - 1.0f);
         const keel::f32 smoothT = pingPong * pingPong * (3.0f - 2.0f * pingPong);
         if (vertical) {
-            const keel::f32 shuttleH = keel::max(trackRect.w, trackRect.h * 0.32f);
-            const keel::f32 shuttleY = trackRect.y + (1.0f - smoothT) * keel::max(0.0f, trackRect.h - shuttleH);
-            drawBarFill(Rect(trackRect.x, shuttleY, trackRect.w, shuttleH));
+            const keel::f32 shuttleH = keel::max(snappedTrack.w, snappedTrack.h * 0.32f);
+            const keel::f32 shuttleY = snappedTrack.y + (1.0f - smoothT) * keel::max(0.0f, snappedTrack.h - shuttleH);
+            drawBarFill(Rect(snappedTrack.x, shuttleY, snappedTrack.w, shuttleH));
         } else {
-            const keel::f32 shuttleW = keel::max(trackRect.h, trackRect.w * 0.32f);
-            const keel::f32 shuttleX = trackRect.x + smoothT * keel::max(0.0f, trackRect.w - shuttleW);
-            drawBarFill(Rect(shuttleX, trackRect.y, shuttleW, trackRect.h));
+            const keel::f32 shuttleW = keel::max(snappedTrack.h, snappedTrack.w * 0.32f);
+            const keel::f32 shuttleX = snappedTrack.x + smoothT * keel::max(0.0f, snappedTrack.w - shuttleW);
+            drawBarFill(Rect(shuttleX, snappedTrack.y, shuttleW, snappedTrack.h));
         }
     } else if (ratio > 0.001f) {
         if (vertical) {
-            const keel::f32 fillH = ratio * trackRect.h;
+            const keel::f32 fillH = ratio * snappedTrack.h;
             if (fillH > 0.5f) {
-                drawBarFill(Rect(trackRect.x, trackRect.Bottom() - fillH, trackRect.w, fillH));
+                drawBarFill(Rect(snappedTrack.x, snappedTrack.Bottom() - fillH, snappedTrack.w, fillH));
             }
         } else {
-            const keel::f32 fillW = ratio * trackRect.w;
+            const keel::f32 fillW = ratio * snappedTrack.w;
             if (fillW > 0.5f) {
-                drawBarFill(Rect(trackRect.x, trackRect.y, fillW, trackRect.h));
+                drawBarFill(Rect(snappedTrack.x, snappedTrack.y, fillW, snappedTrack.h));
             }
         }
     }
@@ -1525,36 +1601,42 @@ void DefaultStylePainter::DrawSwitch(
     bool disabled,
     keel::f32 themeRadius
 ) const {
+    const PixelGrid pg = PixelGrid::From(canvas);
     const bool isBevel = (theme.chrome.frame == FrameTreatment::Bevel3D);
     const bool sharp = isBevel || (themeRadius <= 0.01f);
+    const PixelGrid::SnappedPxRect trackPx = pg.SnapRectPx(trackRect);
+    const Rect snappedTrack = isBevel ? pg.PxRectToLogical(trackPx) : trackRect;
 
     if (isBevel) {
-        canvas.DrawRect(trackRect, trackFill);
-        DrawBevelFrame(canvas, trackRect, theme.bevel, /*sunken=*/true, /*thin=*/false);
+        canvas.DrawRect(snappedTrack, trackFill);
+        DrawBevelFrame(canvas, snappedTrack, theme.bevel, /*sunken=*/true, /*thin=*/false);
         if (focused && !disabled) {
-            canvas.DrawRoundRect(trackRect, 0.0f, Color::Transparent(), theme.palette.focusRing, 1.0f);
+            canvas.DrawRoundRect(snappedTrack, 0.0f, Color::Transparent(), theme.palette.focusRing, pg.UnitStepDp());
         }
     } else if (checked && theme.fillStyle == FillStyle::Gradient && !disabled) {
         const Gradient trackGrad = theme.DeriveAccentGradient(trackFill, 90.0f);
-        canvas.DrawGradientRoundRect(trackRect, sharp ? 0.0f : (trackRect.h * 0.5f), trackGrad, trackStroke, strokeWidth);
+        canvas.DrawGradientRoundRect(snappedTrack, sharp ? 0.0f : (snappedTrack.h * 0.5f), trackGrad, trackStroke, pg.StrokeDp(strokeWidth));
     } else {
-        canvas.DrawRoundRect(trackRect, sharp ? 0.0f : (trackRect.h * 0.5f), trackFill, trackStroke, strokeWidth);
+        canvas.DrawRoundRect(snappedTrack, sharp ? 0.0f : (snappedTrack.h * 0.5f), trackFill, trackStroke, pg.StrokeDp(strokeWidth));
     }
 
-    const keel::f32 pad = isBevel ? 2.0f : knobPadding;
-    const keel::f32 knobH = isBevel ? keel::max(6.0f, trackRect.h - pad * 2.0f) : knobDiameter;
-    const keel::f32 knobW = isBevel ? keel::max(10.0f, knobDiameter) : knobDiameter;
-    const keel::f32 knobY = trackRect.y + (trackRect.h - knobH) * 0.5f;
-    const keel::f32 knobX = checked
-        ? (trackRect.x + trackRect.w - knobW - pad)
-        : (trackRect.x + pad);
-
     if (isBevel) {
-        const Rect knobRect(keel::round(knobX), keel::round(knobY), keel::round(knobW), keel::round(knobH));
+        const keel::i32 padPx = pg.UnitStepPx() * 2;
+        const keel::i32 knobHPx = keel::max(pg.UnitStepPx() * 6, trackPx.Height() - padPx * 2);
+        const keel::i32 knobWPx = keel::max(pg.StrokePx(10.0f), pg.StrokePx(knobDiameter));
+        const keel::i32 ky0 = trackPx.y0 + (trackPx.Height() - knobHPx) / 2;
+        const keel::i32 kx0 = checked ? (trackPx.x1 - knobWPx - padPx) : (trackPx.x0 + padPx);
+        const Rect knobRect = pg.PxRectToLogical(kx0, ky0, kx0 + knobWPx, ky0 + knobHPx);
         const Color bevelKnobBg = disabled ? theme.palette.surface.WithAlphaF(theme.disabledOpacity) : theme.palette.surface;
         canvas.DrawRect(knobRect, bevelKnobBg);
         DrawBevelFrame(canvas, knobRect, theme.bevel, /*sunken=*/false, /*thin=*/false);
     } else {
+        const keel::f32 knobH = knobDiameter;
+        const keel::f32 knobW = knobDiameter;
+        const keel::f32 knobY = snappedTrack.y + (snappedTrack.h - knobH) * 0.5f;
+        const keel::f32 knobX = checked
+            ? (snappedTrack.x + snappedTrack.w - knobW - knobPadding)
+            : (snappedTrack.x + knobPadding);
         const Rect knobRect(knobX, knobY, knobW, knobH);
         canvas.DrawRoundRect(knobRect, sharp ? 0.0f : (knobH * 0.5f), knobFill);
     }
@@ -1573,19 +1655,21 @@ Color DefaultStylePainter::DrawCheckboxBox(
     bool focused,
     bool disabled
 ) const {
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const Rect sr = pg.SnapRect(boxRect);
     if (theme.chrome.checkControl == CheckControlStyle::SunkenInk) {
         const auto& pal = theme.palette;
         const Color bevelFill = (disabled || pressed) ? pal.surface : pal.inputBackground;
-        canvas.DrawRect(boxRect, bevelFill);
-        DrawBevelFrame(canvas, boxRect, theme.bevel, /*sunken=*/true, /*thin=*/false);
+        canvas.DrawRect(sr, bevelFill);
+        DrawBevelFrame(canvas, sr, theme.bevel, /*sunken=*/true, /*thin=*/false);
         if (focused && !disabled) {
-            canvas.DrawRoundRect(boxRect, 0.0f, Color::Transparent(), pal.focusRing, 1.0f);
+            canvas.DrawRoundRect(sr, 0.0f, Color::Transparent(), pal.focusRing, pg.UnitStepDp());
         }
         if (disabled) return pal.textDisabled;
         return ResolveContrastInk(bevelFill, pal.textPrimary, theme.bevel);
     }
 
-    canvas.DrawRoundRect(boxRect, cornerRadius, fill, stroke, strokeWidth);
+    canvas.DrawRoundRect(sr, cornerRadius, fill, stroke, pg.StrokeDp(strokeWidth));
     return defaultMarkColor;
 }
 
@@ -1630,13 +1714,23 @@ void DefaultStylePainter::DrawTabBarBaseline(
     const UiTheme& theme,
     Rect barRect
 ) const {
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const PixelGrid::SnappedPxRect bp = pg.SnapRectPx(barRect);
+    const keel::i32 step = pg.UnitStepPx();
+    if (bp.Width() <= 0 || bp.Height() <= 0) return;
+
     if (theme.chrome.tabChrome == TabBarChrome::Classic3D) {
-        const keel::f32 y = keel::floor(barRect.Bottom() - 1.0f);
-        canvas.DrawRect(Rect(barRect.x, y, barRect.w, 1.0f), theme.bevel.highlightOuter);
+        canvas.DrawRect(pg.PxRectToLogical(bp.x0, bp.y1 - step, bp.x1, bp.y1), theme.bevel.highlightOuter);
         return;
     }
-    const keel::f32 sepY = barRect.Bottom() - 0.5f;
-    canvas.DrawLine(Vec2(barRect.x, sepY), Vec2(barRect.Right(), sepY), theme.palette.borderSubtle, 1.0f);
+    const keel::f32 stepDp = pg.PxToDp(step);
+    const keel::f32 sepY = pg.PxToLogicalY(bp.y1) - stepDp * 0.5f;
+    canvas.DrawLine(
+        Vec2(pg.PxToLogicalX(bp.x0), sepY),
+        Vec2(pg.PxToLogicalX(bp.x1), sepY),
+        theme.palette.borderSubtle,
+        stepDp
+    );
 }
 
 keel::f32 DefaultStylePainter::DrawTabChrome(
@@ -1654,97 +1748,112 @@ keel::f32 DefaultStylePainter::DrawTabChrome(
     keel::f32 radius
 ) const {
     const auto& pal = theme.palette;
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const PixelGrid::SnappedPxRect bp = pg.SnapRectPx(bounds);
+    const keel::i32 step = pg.UnitStepPx();
+    const keel::f32 stepDp = pg.PxToDp(step);
+
     if (theme.chrome.tabChrome == TabBarChrome::Classic3D && style != TabChromeStyle::Folder) {
         const BevelPalette& bc = theme.bevel;
-        const keel::f32 topOff = active ? 0.0f : 3.0f;
-        const keel::f32 tx = keel::floor(bounds.x);
-        const keel::f32 ty = keel::floor(bounds.y + topOff);
-        const keel::f32 tw = keel::floor(bounds.w);
-        const keel::f32 botY = keel::floor(bounds.Bottom());
-        const keel::f32 th = keel::max(4.0f, botY - ty);
+        const keel::i32 s2 = step * 2;
+        const keel::i32 topOffPx = active ? 0 : keel::max(step * 3, pg.StrokePx(3.0f));
+        const keel::i32 x0 = bp.x0;
+        const keel::i32 y0 = bp.y0 + topOffPx;
+        const keel::i32 x1 = bp.x1;
+        const keel::i32 y1 = bp.y1;
+        const keel::i32 wPx = x1 - x0;
+        const keel::i32 hPx = keel::max(step * 4, y1 - y0);
+        if (wPx < step * 4) return active ? -0.5f : 1.5f;
+        const keel::i32 effY0 = y1 - hPx;
+
         const Color tabBg = active
             ? pal.surface
             : ((hovered && !disabled) ? pal.surfaceHover : pal.background);
 
-        if (tw > 4.0f && th > 2.0f) {
-            canvas.DrawRect(Rect(tx + 2.0f, ty, tw - 4.0f, 1.0f), tabBg);
-            canvas.DrawRect(Rect(tx + 1.0f, ty + 1.0f, tw - 2.0f, 1.0f), tabBg);
-            canvas.DrawRect(Rect(tx, ty + 2.0f, tw, th - 2.0f), tabBg);
+        if (wPx > step * 4 && hPx > s2) {
+            canvas.DrawRect(pg.PxRectToLogical(x0 + s2, effY0, x1 - s2, effY0 + step), tabBg);
+            canvas.DrawRect(pg.PxRectToLogical(x0 + step, effY0 + step, x1 - step, effY0 + s2), tabBg);
+            canvas.DrawRect(pg.PxRectToLogical(x0, effY0 + s2, x1, y1), tabBg);
         } else {
-            canvas.DrawRect(Rect(tx, ty, tw, th), tabBg);
+            canvas.DrawRect(pg.PxRectToLogical(x0, effY0, x1, y1), tabBg);
         }
 
-        // Top & left raised bevel with 2px chamfered top-left corner
-        canvas.DrawRect(Rect(tx + 2.0f, ty, keel::max(0.0f, tw - 4.0f), 1.0f), bc.highlightOuter);
-        canvas.DrawRect(Rect(tx + 1.0f, ty + 1.0f, 1.0f, 1.0f), bc.highlightOuter);
-        canvas.DrawRect(Rect(tx, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.highlightOuter);
+        // Top & left raised bevel with 2-step chamfered top-left corner
+        canvas.DrawRect(pg.PxRectToLogical(x0 + s2, effY0, x1 - s2, effY0 + step), bc.highlightOuter);
+        canvas.DrawRect(pg.PxRectToLogical(x0 + step, effY0 + step, x0 + s2, effY0 + s2), bc.highlightOuter);
+        canvas.DrawRect(pg.PxRectToLogical(x0, effY0 + s2, x0 + step, y1), bc.highlightOuter);
 
-        canvas.DrawRect(Rect(tx + 2.0f, ty + 1.0f, keel::max(0.0f, tw - 4.0f), 1.0f), bc.highlightInner);
-        canvas.DrawRect(Rect(tx + 1.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.highlightInner);
+        canvas.DrawRect(pg.PxRectToLogical(x0 + s2, effY0 + step, x1 - s2, effY0 + s2), bc.highlightInner);
+        canvas.DrawRect(pg.PxRectToLogical(x0 + step, effY0 + s2, x0 + s2, y1), bc.highlightInner);
 
-        // Right raised bevel with 2px chamfered top-right corner
-        canvas.DrawRect(Rect(tx + tw - 2.0f, ty + 1.0f, 1.0f, 1.0f), bc.shadowOuter);
-        canvas.DrawRect(Rect(tx + tw - 1.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.shadowOuter);
-        canvas.DrawRect(Rect(tx + tw - 2.0f, ty + 2.0f, 1.0f, keel::max(0.0f, th - 2.0f)), bc.shadowInner);
+        // Right raised bevel with 2-step chamfered top-right corner
+        canvas.DrawRect(pg.PxRectToLogical(x1 - s2, effY0 + step, x1 - step, effY0 + s2), bc.shadowOuter);
+        canvas.DrawRect(pg.PxRectToLogical(x1 - step, effY0 + s2, x1, y1), bc.shadowOuter);
+        canvas.DrawRect(pg.PxRectToLogical(x1 - s2, effY0 + s2, x1 - step, y1), bc.shadowInner);
 
         if (active) {
-            canvas.DrawRect(Rect(tx + 2.0f, botY - 1.0f, keel::max(0.0f, tw - 4.0f), 1.0f), tabBg);
+            canvas.DrawRect(pg.PxRectToLogical(x0 + s2, y1 - step, x1 - s2, y1), tabBg);
         } else if (showSeparator) {
-            canvas.DrawRect(Rect(tx, botY - 1.0f, tw, 1.0f), bc.highlightOuter);
+            canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step, x1, y1), bc.highlightOuter);
         }
 
-        if (focused && !disabled && tw > 8.0f && th > 8.0f) {
-            canvas.DrawRoundRect(Rect(tx + 3.0f, ty + 3.0f, tw - 6.0f, th - 5.0f), 0.0f, Color::Transparent(), pal.focusRing, 1.0f);
+        if (focused && !disabled && wPx > step * 8 && hPx > step * 8) {
+            canvas.DrawRoundRect(
+                pg.PxRectToLogical(x0 + step * 3, effY0 + step * 3, x1 - step * 3, y1 - s2),
+                0.0f, Color::Transparent(), pal.focusRing, stepDp
+            );
         }
         return active ? -0.5f : 1.5f;
     }
 
     // Modern TabBar chrome
+    const Rect snappedBounds = pg.PxRectToLogical(bp);
+    const keel::f32 baseSepY = pg.PxToLogicalY(bp.y1) - stepDp * 0.5f;
     if (style == TabChromeStyle::Underline) {
         if (showSeparator) {
-            canvas.DrawLine(Vec2(bounds.x, bounds.Bottom() - 0.5f), Vec2(bounds.Right(), bounds.Bottom() - 0.5f), pal.borderSubtle, 1.0f);
+            canvas.DrawLine(Vec2(snappedBounds.x, baseSepY), Vec2(snappedBounds.Right(), baseSepY), pal.borderSubtle, stepDp);
         }
         if (hovered && !active && !disabled) {
-            const Rect hoverR(bounds.x, bounds.y + 4.0f, bounds.w, bounds.h - 8.0f);
+            const Rect hoverR(snappedBounds.x, snappedBounds.y + 4.0f, snappedBounds.w, snappedBounds.h - 8.0f);
             canvas.DrawRoundRect(hoverR, radius, pal.surfaceHover);
         }
         if (active) {
             const keel::f32 lineH = 3.0f;
             const keel::f32 linePad = 2.0f;
-            const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, keel::max(0.0f, bounds.w - linePad * 2.0f), lineH);
+            const Rect lineR(snappedBounds.x + linePad, snappedBounds.Bottom() - lineH, keel::max(0.0f, snappedBounds.w - linePad * 2.0f), lineH);
             canvas.DrawRoundRect(lineR, radius > 0.01f ? 1.5f : 0.0f, accentCol);
         }
         if (focused && !disabled) {
             const keel::f32 bottomInset = active ? 6.0f : 4.0f;
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), keel::max(0.0f, bounds.h - bottomInset)), radius, Color::Transparent(), pal.focusRing, 1.5f);
+            canvas.DrawRoundRect(Rect(snappedBounds.x + 1.0f, snappedBounds.y + 2.0f, keel::max(0.0f, snappedBounds.w - 2.0f), keel::max(0.0f, snappedBounds.h - bottomInset)), radius, Color::Transparent(), pal.focusRing, pg.StrokeDp(1.5f));
         }
     } else if (style == TabChromeStyle::Card) {
-        const Rect cardR(bounds.x, bounds.y + 2.0f, bounds.w, bounds.h + radius);
+        const Rect cardR = pg.SnapRect(Rect(snappedBounds.x, snappedBounds.y + 2.0f, snappedBounds.w, snappedBounds.h + radius));
         if (active) {
-            canvas.DrawRoundRect(cardR, radius, pal.surface, pal.border, 1.0f);
-            canvas.DrawRect(Rect(bounds.x + 1.0f, bounds.Bottom() - 1.5f, keel::max(0.0f, bounds.w - 2.0f), 2.0f), pal.surface);
-            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, keel::max(0.0f, bounds.w - 2.0f), 2.5f), radius > 0.01f ? 1.0f : 0.0f, accentCol);
+            canvas.DrawRoundRect(cardR, radius, pal.surface, pal.border, stepDp);
+            canvas.DrawRect(pg.PxRectToLogical(bp.x0 + step, bp.y1 - step * 2, bp.x1 - step, bp.y1), pal.surface);
+            canvas.DrawRoundRect(Rect(cardR.x + stepDp, cardR.y, keel::max(0.0f, cardR.w - stepDp * 2.0f), 2.5f), radius > 0.01f ? 1.0f : 0.0f, accentCol);
         } else {
             if (showSeparator) {
-                canvas.DrawLine(Vec2(bounds.x, bounds.Bottom() - 0.5f), Vec2(bounds.Right(), bounds.Bottom() - 0.5f), pal.borderSubtle, 1.0f);
+                canvas.DrawLine(Vec2(snappedBounds.x, baseSepY), Vec2(snappedBounds.Right(), baseSepY), pal.borderSubtle, stepDp);
             }
             if (hovered && !disabled) {
-                canvas.DrawRoundRect(cardR, radius, pal.surfaceHover, pal.borderSubtle, 1.0f);
+                canvas.DrawRoundRect(cardR, radius, pal.surfaceHover, pal.borderSubtle, stepDp);
             }
         }
         if (focused && !disabled) {
-            const Rect focusCardR(bounds.x + 0.75f, bounds.y + 2.75f, keel::max(0.0f, bounds.w - 1.5f), bounds.h + radius);
-            canvas.DrawRoundRect(focusCardR, keel::max(0.0f, radius - 0.5f), Color::Transparent(), pal.focusRing, 1.5f);
+            const Rect focusCardR(cardR.x + 0.75f, cardR.y + 0.75f, keel::max(0.0f, cardR.w - 1.5f), cardR.h);
+            canvas.DrawRoundRect(focusCardR, keel::max(0.0f, radius - 0.5f), Color::Transparent(), pal.focusRing, pg.StrokeDp(1.5f));
         }
     } else if (style == TabChromeStyle::Folder) {
-        const keel::f32 slope = keel::min(6.0f, bounds.w * 0.14f);
-        const keel::f32 topY = bounds.y + (active ? 1.5f : 4.0f);
-        const keel::f32 botY = bounds.Bottom();
+        const keel::f32 slope = keel::min(6.0f, snappedBounds.w * 0.14f);
+        const keel::f32 topY = snappedBounds.y + (active ? 1.5f : 4.0f);
+        const keel::f32 botY = snappedBounds.Bottom();
         VectorPath folderPath;
-        folderPath.MoveTo({bounds.x, botY});
-        folderPath.LineTo({bounds.x + slope, topY});
-        folderPath.LineTo({bounds.Right() - slope, topY});
-        folderPath.LineTo({bounds.Right(), botY});
+        folderPath.MoveTo({snappedBounds.x, botY});
+        folderPath.LineTo({snappedBounds.x + slope, topY});
+        folderPath.LineTo({snappedBounds.Right() - slope, topY});
+        folderPath.LineTo({snappedBounds.Right(), botY});
         folderPath.Close();
 
         if (active || (hovered && !disabled)) {
@@ -1752,15 +1861,15 @@ keel::f32 DefaultStylePainter::DrawTabChrome(
             p.fillColor = active ? pal.surfaceElevated : pal.surfaceHover;
             p.renderFill = true;
             p.strokeColor = active ? pal.border : pal.borderSubtle;
-            p.strokeWidthPx = 1.0f;
+            p.strokeWidthPx = stepDp;
             p.renderStroke = true;
             canvas.DrawPath(folderPath, p);
         }
         if (active) {
-            canvas.DrawRect(Rect(bounds.x + 1.0f, botY - 1.5f, keel::max(0.0f, bounds.w - 2.0f), 2.0f), pal.surfaceElevated);
-            canvas.DrawLine(Vec2(bounds.x + slope, topY + 0.5f), Vec2(bounds.Right() - slope, topY + 0.5f), accentCol, 2.0f);
+            canvas.DrawRect(pg.PxRectToLogical(bp.x0 + step, bp.y1 - step * 2, bp.x1 - step, bp.y1), pal.surfaceElevated);
+            canvas.DrawLine(Vec2(snappedBounds.x + slope, topY + 0.5f), Vec2(snappedBounds.Right() - slope, topY + 0.5f), accentCol, pg.StrokeDp(2.0f));
         } else if (showSeparator) {
-            canvas.DrawLine(Vec2(bounds.x, botY - 0.5f), Vec2(bounds.Right(), botY - 0.5f), pal.borderSubtle, 1.0f);
+            canvas.DrawLine(Vec2(snappedBounds.x, baseSepY), Vec2(snappedBounds.Right(), baseSepY), pal.borderSubtle, stepDp);
         }
         if (focused && !disabled) {
             VectorPath focusPath;
@@ -1936,7 +2045,7 @@ void DefaultStylePainter::DrawBadge(
     if (rect.w <= 0.0f || rect.h <= 0.0f) return;
 
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
-        const Rect bevelRect = SnapBevelRect(rect);
+        const Rect bevelRect = PixelGrid::From(canvas).SnapRect(rect);
         if (bg.a > 0u) {
             canvas.DrawRect(bevelRect, bg);
         }
@@ -2216,33 +2325,39 @@ void DefaultStylePainter::DrawSplitSash(
 ) const {
     if (sashRect.w <= 0.0f || sashRect.h <= 0.0f) return;
 
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const PixelGrid::SnappedPxRect sp = pg.SnapRectPx(sashRect);
+    const Rect snappedSash = pg.PxRectToLogical(sp);
+    const keel::i32 step = pg.UnitStepPx();
+
     const auto& pal = theme.palette;
     const bool active = !disabled && (hovered || dragging);
-    const keel::f32 thick = verticalBar ? sashRect.w : sashRect.h;
-    const keel::f32 span = verticalBar ? sashRect.h : sashRect.w;
+    const keel::f32 thick = verticalBar ? snappedSash.w : snappedSash.h;
+    const keel::f32 span = verticalBar ? snappedSash.h : snappedSash.w;
 
     // 1. Classic 3D (Bevel3D / Etched3D): raised 3D splitter bar + embossed 3D grip dots
     if (theme.chrome.frame == FrameTreatment::Bevel3D || theme.chrome.divider == DividerStyle::Etched3D) {
         const Color baseBg = disabled
             ? pal.surface
             : (dragging ? pal.surfaceActive : (hovered ? pal.surfaceHover : pal.surface));
-        canvas.DrawRect(sashRect, baseBg);
+        canvas.DrawRect(snappedSash, baseBg);
 
         if (thick < 4.0f) {
             if (verticalBar) {
-                const keel::f32 x = keel::floor(sashRect.Center().x - 1.0f);
-                DrawBevelDividerV(canvas, x, sashRect.y, sashRect.Bottom(), theme.bevel);
+                const keel::f32 x = pg.PxToLogicalX((sp.x0 + sp.x1) / 2 - step);
+                DrawBevelDividerV(canvas, x, snappedSash.y, snappedSash.Bottom(), theme.bevel);
             } else {
-                const keel::f32 y = keel::floor(sashRect.Center().y - 1.0f);
-                DrawBevelDividerH(canvas, sashRect.x, sashRect.Right(), y, theme.bevel);
+                const keel::f32 y = pg.PxToLogicalY((sp.y0 + sp.y1) / 2 - step);
+                DrawBevelDividerH(canvas, snappedSash.x, snappedSash.Right(), y, theme.bevel);
             }
         } else {
             const bool thinBevel = (thick < 8.0f);
-            DrawBevelFrame(canvas, sashRect, theme.bevel, /*sunken=*/(dragging && !disabled), thinBevel);
+            DrawBevelFrame(canvas, snappedSash, theme.bevel, /*sunken=*/(dragging && !disabled), thinBevel);
 
             if (showGrip && span >= 24.0f) {
-                const keel::f32 cx = keel::floor(sashRect.x) + keel::floor(keel::floor(sashRect.w) * 0.5f);
-                const keel::f32 cy = keel::floor(sashRect.y) + keel::floor(keel::floor(sashRect.h) * 0.5f);
+                const keel::i32 cxPx = sp.x0 + sp.Width() / 2;
+                const keel::i32 cyPx = sp.y0 + sp.Height() / 2;
+                const keel::i32 pitchPx = keel::max(step * 4, pg.StrokePx(4.0f));
                 const Color dotShadow = disabled
                     ? theme.bevel.shadowInner.WithAlphaF(theme.disabledOpacity)
                     : theme.bevel.shadowInner;
@@ -2251,15 +2366,15 @@ void DefaultStylePainter::DrawSplitSash(
                     : theme.bevel.highlightOuter;
 
                 for (keel::i32 i = -2; i <= 2; ++i) {
-                    const keel::f32 off = keel::as<keel::f32>(i) * 4.0f;
+                    const keel::i32 offPx = i * pitchPx;
                     if (verticalBar) {
-                        const keel::f32 dy = cy + off;
-                        canvas.DrawRect(Rect(cx - 1.0f, dy - 1.0f, 1.0f, 1.0f), dotShadow);
-                        canvas.DrawRect(Rect(cx,        dy,        1.0f, 1.0f), dotHi);
+                        const keel::i32 dy = cyPx + offPx;
+                        canvas.DrawRect(pg.PxRectToLogical(cxPx - step, dy - step, cxPx, dy), dotShadow);
+                        canvas.DrawRect(pg.PxRectToLogical(cxPx, dy, cxPx + step, dy + step), dotHi);
                     } else {
-                        const keel::f32 dx = cx + off;
-                        canvas.DrawRect(Rect(dx - 1.0f, cy - 1.0f, 1.0f, 1.0f), dotShadow);
-                        canvas.DrawRect(Rect(dx,        cy,        1.0f, 1.0f), dotHi);
+                        const keel::i32 dx = cxPx + offPx;
+                        canvas.DrawRect(pg.PxRectToLogical(dx - step, cyPx - step, dx, cyPx), dotShadow);
+                        canvas.DrawRect(pg.PxRectToLogical(dx, cyPx, dx + step, cyPx + step), dotHi);
                     }
                 }
             }
@@ -2278,7 +2393,7 @@ void DefaultStylePainter::DrawSplitSash(
         : (isBrutalist ? pal.surface : pal.surfaceHover.WithAlphaF(0.35f));
     canvas.DrawRect(sashRect, trackBg);
 
-    const keel::f32 lineT = isBrutalist ? keel::min(2.0f, thick) : 1.0f;
+    const keel::f32 lineT = isBrutalist ? keel::min(2.0f, thick) : pg.PxToDp(step);
     const Color lineCol = active
         ? (isBrutalist ? accentCol : accentCol.WithAlphaF(0.85f))
         : (isBrutalist ? pal.border : pal.borderSubtle);
@@ -2353,7 +2468,7 @@ void DefaultStylePainter::DrawPanelToggle(
         ? pal.textPrimary
         : ((p.hovered || p.pressed) ? pal.accent : pal.textSecondary).WithAlphaF(alphaMul);
     const keel::f32 shift = GetButtonContentOffset(theme, p.pressed, false, false);
-    const Rect glyphRect = isBevel ? SnapBevelRect(p.rect) : p.rect;
+    const Rect glyphRect = isBevel ? PixelGrid::From(canvas).SnapRect(p.rect) : p.rect;
     DrawScrollbarArrowGlyph(canvas, glyphRect, horizontal, isStart, arrowStyle, arrowCol, shift);
 }
 
@@ -2364,15 +2479,17 @@ void DefaultStylePainter::DrawTableHeaderCell(
 ) const {
     if (p.rect.w <= 0.0f || p.rect.h <= 0.0f) return;
     const auto& pal = theme.palette;
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const Rect sr = pg.SnapRect(p.rect);
 
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
-        const Rect sr = SnapBevelRect(p.rect);
         const Color faceCol = p.pressed ? pal.surfaceActive : pal.surface;
         canvas.DrawRect(sr, faceCol);
         DrawBevelFrame(canvas, sr, theme.bevel, p.pressed, false);
         if (p.dividerActive && p.showRightDivider) {
-            const keel::f32 divX = sr.Right() - 1.0f;
-            canvas.DrawLine(Vec2(divX, sr.y), Vec2(divX, sr.Bottom()), pal.accent, 2.0f);
+            const keel::i32 divPx = pg.StrokePx(2.0f);
+            const keel::f32 divX = pg.SnapLineCenterX(sr.Right() - pg.PxToDp(divPx) * 0.5f, divPx);
+            canvas.DrawLine(Vec2(divX, sr.y), Vec2(divX, sr.Bottom()), pal.accent, pg.PxToDp(divPx));
         }
         return;
     }
@@ -2382,18 +2499,19 @@ void DefaultStylePainter::DrawTableHeaderCell(
     const Color fillCol = p.hovered
         ? pal.surfaceHover
         : (p.sorted ? pal.accent.WithAlpha(isBold ? 28 : 20) : pal.surfaceElevated);
-    canvas.DrawRect(p.rect, fillCol);
+    canvas.DrawRect(sr, fillCol);
 
     if (p.showRightDivider) {
-        const keel::f32 divX = keel::floor(p.rect.Right()) - 0.5f;
         const Color divCol = p.dividerActive
             ? pal.accent
             : (p.isFrozenSeam ? pal.borderHover : pal.border);
-        const keel::f32 divThick = p.dividerActive ? 2.0f : (isBold ? 1.5f : 1.0f);
+        const keel::i32 divPx = pg.StrokePx(p.dividerActive ? 2.0f : (isBold ? 1.5f : 1.0f));
+        const keel::f32 divThick = pg.PxToDp(divPx);
+        const keel::f32 divX = pg.SnapLineCenterX(sr.Right() - divThick * 0.5f, divPx);
         const keel::f32 padY = (p.isFrozenSeam || isBold) ? 0.0f : 4.0f;
         canvas.DrawLine(
-            Vec2(divX, p.rect.y + padY),
-            Vec2(divX, p.rect.Bottom() - padY),
+            Vec2(divX, sr.y + padY),
+            Vec2(divX, sr.Bottom() - padY),
             divCol,
             divThick
         );
@@ -2414,15 +2532,22 @@ void DefaultStylePainter::DrawTreeExpander(
 
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
         const auto& pal = theme.palette;
-        // Authentic Windows 98 SysTreeView32 9x9 pixel-snapped [+] / [-] expander box
-        keel::f32 boxSz = keel::clamp(keel::floor(keel::min(rect.w, rect.h) * 0.78f), 9.0f, 11.0f);
-        if ((keel::as<keel::i32>(boxSz) & 1) == 0) {
-            boxSz -= 1.0f;
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const keel::i32 step = pg.UnitStepPx();
+        const keel::i32 minPx = keel::as<keel::i32>(keel::floor(keel::min(rect.w, rect.h) * pg.toPx.scale));
+        // Authentic Windows 98 SysTreeView32 odd-sized pixel-snapped [+] / [-] expander box
+        keel::i32 boxPx = keel::clamp(keel::as<keel::i32>(keel::floor(keel::as<keel::f32>(minPx) * 0.78f)), step * 9, step * 11);
+        if ((boxPx & 1) != (step & 1)) {
+            boxPx -= 1;
         }
-        const keel::f32 cx = keel::floor(rect.Center().x);
-        const keel::f32 cy = keel::floor(rect.Center().y);
-        const keel::f32 half = keel::floor(boxSz * 0.5f);
-        const Rect box(cx - half, cy - half, boxSz, boxSz);
+        boxPx = keel::max(boxPx, step * 5);
+
+        const keel::i32 cxPx = pg.SnapXToPx(rect.Center().x);
+        const keel::i32 cyPx = pg.SnapYToPx(rect.Center().y);
+        const keel::i32 x0 = cxPx - (boxPx / 2);
+        const keel::i32 y0 = cyPx - (boxPx / 2);
+        const keel::i32 x1 = x0 + boxPx;
+        const keel::i32 y1 = y0 + boxPx;
 
         const Color fillCol = disabled ? pal.surface : pal.inputBackground;
         const Color borderCol = disabled
@@ -2432,19 +2557,23 @@ void DefaultStylePainter::DrawTreeExpander(
             ? pal.textDisabled
             : ResolveContrastInk(fillCol, pal.textPrimary, theme.bevel);
 
-        canvas.DrawRect(box, fillCol);
-        // Crisp 1px perimeter border
-        canvas.DrawRect(Rect(box.x, box.y, box.w, 1.0f), borderCol);
-        canvas.DrawRect(Rect(box.x, box.Bottom() - 1.0f, box.w, 1.0f), borderCol);
-        canvas.DrawRect(Rect(box.x, box.y, 1.0f, box.h), borderCol);
-        canvas.DrawRect(Rect(box.Right() - 1.0f, box.y, 1.0f, box.h), borderCol);
+        canvas.DrawRect(pg.PxRectToLogical(x0, y0, x1, y1), fillCol);
+        // Crisp step-px perimeter border
+        canvas.DrawRect(pg.PxRectToLogical(x0, y0, x1, y0 + step), borderCol);
+        canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step, x1, y1), borderCol);
+        canvas.DrawRect(pg.PxRectToLogical(x0, y0, x0 + step, y1), borderCol);
+        canvas.DrawRect(pg.PxRectToLogical(x1 - step, y0, x1, y1), borderCol);
 
         // Centered '-' bar (and vertical '|' bar when collapsed to form '+')
-        const keel::f32 barSpan = keel::max(3.0f, boxSz - 4.0f);
-        const keel::f32 barHalf = keel::floor(barSpan * 0.5f);
-        canvas.DrawRect(Rect(cx - barHalf, cy, barSpan, 1.0f), inkCol);
+        const keel::i32 margin = step * 2;
+        const keel::i32 barSpan = keel::max(step * 3, boxPx - margin * 2);
+        const keel::i32 barX0 = x0 + (boxPx - barSpan) / 2;
+        const keel::i32 barY0 = y0 + (boxPx - step) / 2;
+        canvas.DrawRect(pg.PxRectToLogical(barX0, barY0, barX0 + barSpan, barY0 + step), inkCol);
         if (!expanded) {
-            canvas.DrawRect(Rect(cx, cy - barHalf, 1.0f, barSpan), inkCol);
+            const keel::i32 vBarX0 = x0 + (boxPx - step) / 2;
+            const keel::i32 vBarY0 = y0 + (boxPx - barSpan) / 2;
+            canvas.DrawRect(pg.PxRectToLogical(vBarX0, vBarY0, vBarX0 + step, vBarY0 + barSpan), inkCol);
         }
         return;
     }
@@ -2456,70 +2585,78 @@ void DefaultStylePainter::DrawTreeExpander(
 namespace {
 
 void DrawWinCtrlMinimizeGlyph(ICanvas& canvas, Rect r, Color col, bool classicBold) noexcept {
+    const PixelGrid pg = PixelGrid::From(canvas);
     if (classicBold) {
-        const keel::f32 barW = keel::max(5.0f, keel::round(r.w * 0.72f));
-        const keel::f32 x0 = keel::floor(r.Center().x - barW * 0.5f);
-        const keel::f32 y0 = keel::floor(r.Bottom() - 2.0f);
-        canvas.DrawRect(Rect(x0, y0, barW, 2.0f), col);
+        const PixelGrid::SnappedPxRect s = pg.SnapRectPx(r);
+        const keel::i32 step = pg.UnitStepPx();
+        const keel::i32 barW = keel::max(step * 5, keel::as<keel::i32>(keel::round(keel::as<keel::f32>(s.Width()) * 0.72f)));
+        const keel::i32 x0 = s.x0 + (s.Width() - barW) / 2;
+        const keel::i32 y1 = s.y1;
+        canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step * 2, x0 + barW, y1), col);
         return;
     }
-    const keel::f32 y = keel::round(r.Center().y) + 0.5f;
-    canvas.DrawLine(Vec2(r.x, y), Vec2(r.Right(), y), col, 1.25f);
+    const keel::i32 strokePx = pg.StrokePx(1.25f);
+    const keel::f32 y = pg.SnapLineCenterY(r.Center().y, strokePx);
+    canvas.DrawLine(Vec2(pg.SnapEdgeX(r.x), y), Vec2(pg.SnapEdgeX(r.Right()), y), col, pg.PxToDp(strokePx));
 }
 
 void DrawWinCtrlMaximizeGlyph(ICanvas& canvas, Rect r, Color col, bool classicBold) noexcept {
+    const PixelGrid pg = PixelGrid::From(canvas);
     if (classicBold) {
-        const keel::f32 x = keel::floor(r.x);
-        const keel::f32 y = keel::floor(r.y);
-        const keel::f32 w = keel::max(6.0f, keel::round(r.w));
-        const keel::f32 h = keel::max(6.0f, keel::round(r.h));
-        canvas.DrawRect(Rect(x, y, w, 2.0f), col);
-        canvas.DrawRect(Rect(x, y + h - 1.0f, w, 1.0f), col);
-        canvas.DrawRect(Rect(x, y, 1.0f, h), col);
-        canvas.DrawRect(Rect(x + w - 1.0f, y, 1.0f, h), col);
+        const PixelGrid::SnappedPxRect s = pg.SnapRectPx(r);
+        const keel::i32 step = pg.UnitStepPx();
+        const keel::i32 x0 = s.x0;
+        const keel::i32 y0 = s.y0;
+        const keel::i32 x1 = keel::max(x0 + step * 6, s.x1);
+        const keel::i32 y1 = keel::max(y0 + step * 6, s.y1);
+        canvas.DrawRect(pg.PxRectToLogical(x0, y0, x1, y0 + step * 2), col);
+        canvas.DrawRect(pg.PxRectToLogical(x0, y1 - step, x1, y1), col);
+        canvas.DrawRect(pg.PxRectToLogical(x0, y0, x0 + step, y1), col);
+        canvas.DrawRect(pg.PxRectToLogical(x1 - step, y0, x1, y1), col);
         return;
     }
-    const Rect sq(
-        keel::round(r.x) + 0.5f,
-        keel::round(r.y) + 0.5f,
-        keel::max(4.0f, keel::round(r.w) - 1.0f),
-        keel::max(4.0f, keel::round(r.h) - 1.0f)
-    );
-    canvas.DrawRoundRect(sq, 1.0f, Color::Transparent(), col, 1.25f);
+    const Rect sq = pg.SnapRect(r);
+    canvas.DrawRoundRect(sq, 1.0f, Color::Transparent(), col, pg.StrokeDp(1.25f));
 }
 
 void DrawWinCtrlRestoreGlyph(ICanvas& canvas, Rect r, Color col, bool classicBold) noexcept {
-    const keel::f32 sz = keel::max(4.0f, keel::round(r.w * 0.76f));
+    const PixelGrid pg = PixelGrid::From(canvas);
     if (classicBold) {
-        const keel::f32 fx = keel::floor(r.x);
-        const keel::f32 fy = keel::floor(r.Bottom() - sz);
-        canvas.DrawRect(Rect(fx, fy, sz, 2.0f), col);
-        canvas.DrawRect(Rect(fx, fy + sz - 1.0f, sz, 1.0f), col);
-        canvas.DrawRect(Rect(fx, fy, 1.0f, sz), col);
-        canvas.DrawRect(Rect(fx + sz - 1.0f, fy, 1.0f, sz), col);
+        const PixelGrid::SnappedPxRect s = pg.SnapRectPx(r);
+        const keel::i32 step = pg.UnitStepPx();
+        const keel::i32 szPx = keel::max(step * 4, keel::as<keel::i32>(keel::round(keel::as<keel::f32>(s.Width()) * 0.76f)));
+        const keel::i32 fx = s.x0;
+        const keel::i32 fy = s.y1 - szPx;
+        canvas.DrawRect(pg.PxRectToLogical(fx, fy, fx + szPx, fy + step * 2), col);
+        canvas.DrawRect(pg.PxRectToLogical(fx, fy + szPx - step, fx + szPx, fy + szPx), col);
+        canvas.DrawRect(pg.PxRectToLogical(fx, fy, fx + step, fy + szPx), col);
+        canvas.DrawRect(pg.PxRectToLogical(fx + szPx - step, fy, fx + szPx, fy + szPx), col);
 
-        const keel::f32 bx = keel::floor(r.Right() - sz);
-        const keel::f32 by = keel::floor(r.y);
-        canvas.DrawRect(Rect(bx, by, sz, 2.0f), col);
-        canvas.DrawRect(Rect(bx + sz - 1.0f, by, 1.0f, sz), col);
+        const keel::i32 bx = s.x1 - szPx;
+        const keel::i32 by = s.y0;
+        canvas.DrawRect(pg.PxRectToLogical(bx, by, bx + szPx, by + step * 2), col);
+        canvas.DrawRect(pg.PxRectToLogical(bx + szPx - step, by, bx + szPx, by + szPx), col);
         if (fy > by) {
-            canvas.DrawRect(Rect(bx, by, 1.0f, fy - by), col);
+            canvas.DrawRect(pg.PxRectToLogical(bx, by, bx + step, fy), col);
         }
-        if (bx + sz > fx + sz) {
-            canvas.DrawRect(Rect(fx + sz, by + sz - 1.0f, (bx + sz) - (fx + sz), 1.0f), col);
+        if (bx + szPx > fx + szPx) {
+            canvas.DrawRect(pg.PxRectToLogical(fx + szPx, by + szPx - step, bx + szPx, by + szPx), col);
         }
         return;
     }
-    const Rect front(keel::round(r.x) + 0.5f, keel::round(r.Bottom() - sz) + 0.5f, sz - 1.0f, sz - 1.0f);
-    canvas.DrawRoundRect(front, 1.0f, Color::Transparent(), col, 1.2f);
-    const keel::f32 bx1 = keel::round(r.Right() - sz) + 0.5f;
-    const keel::f32 by1 = keel::round(r.y) + 0.5f;
-    const keel::f32 bx2 = keel::round(r.Right()) - 0.5f;
-    const keel::f32 by2 = by1 + sz - 1.0f;
-    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx2, by1), col, 1.2f);
-    canvas.DrawLine(Vec2(bx2, by1), Vec2(bx2, by2), col, 1.2f);
-    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx1, front.y), col, 1.2f);
-    canvas.DrawLine(Vec2(front.Right(), by2), Vec2(bx2, by2), col, 1.2f);
+    const keel::f32 sz = keel::max(4.0f, keel::round(r.w * 0.76f));
+    const Rect front = pg.SnapRect(Rect(r.x, r.Bottom() - sz, sz, sz));
+    const keel::i32 strokePx = pg.StrokePx(1.2f);
+    const keel::f32 strokeDp = pg.PxToDp(strokePx);
+    canvas.DrawRoundRect(front, 1.0f, Color::Transparent(), col, strokeDp);
+    const keel::f32 bx1 = pg.SnapLineCenterX(r.Right() - sz, strokePx);
+    const keel::f32 by1 = pg.SnapLineCenterY(r.y, strokePx);
+    const keel::f32 bx2 = pg.SnapLineCenterX(r.Right() - strokeDp, strokePx);
+    const keel::f32 by2 = pg.SnapLineCenterY(r.y + sz - strokeDp, strokePx);
+    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx2, by1), col, strokeDp);
+    canvas.DrawLine(Vec2(bx2, by1), Vec2(bx2, by2), col, strokeDp);
+    canvas.DrawLine(Vec2(bx1, by1), Vec2(bx1, front.y), col, strokeDp);
+    canvas.DrawLine(Vec2(front.Right(), by2), Vec2(bx2, by2), col, strokeDp);
 }
 
 void DrawWinCtrlCloseGlyph(ICanvas& canvas, Rect r, Color col, bool classicBold) noexcept {
@@ -2578,12 +2715,20 @@ void DefaultStylePainter::DrawHeaderBar(
     const auto& pal = theme.palette;
 
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
-        const Rect sr = SnapBevelRect(p.rect);
-        // Classic 3D window title bar: outer 2px 3D face rim + horizontal gradient caption strip inside
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const PixelGrid::SnappedPxRect sp = pg.SnapRectPx(p.rect);
+        const Rect sr = pg.PxRectToLogical(sp);
+        const keel::i32 step = pg.UnitStepPx();
+        // Classic 3D window title bar: outer 2-step 3D face rim + horizontal gradient caption strip inside
         canvas.DrawRect(sr, pal.surface);
 
-        const keel::f32 inset = (sr.w > 10.0f && sr.h > 8.0f) ? 2.0f : 0.0f;
-        const Rect bar(sr.x + inset, sr.y + inset, keel::max(1.0f, sr.w - inset * 2.0f), keel::max(1.0f, sr.h - inset * 2.0f));
+        const keel::i32 insetPx = (sp.Width() > step * 10 && sp.Height() > step * 8) ? (step * 2) : 0;
+        const Rect bar = pg.PxRectToLogical(
+            sp.x0 + insetPx,
+            sp.y0 + insetPx,
+            keel::max(sp.x0 + insetPx + step, sp.x1 - insetPx),
+            keel::max(sp.y0 + insetPx + step, sp.y1 - insetPx)
+        );
         if (p.explicitBg && p.bg.a > 0u) {
             canvas.DrawRect(bar, p.bg);
         } else {
@@ -2601,7 +2746,7 @@ void DefaultStylePainter::DrawHeaderBar(
         }
 
         if (p.drawBottomBorder && p.borderWidth > 0.0f && p.borderColor.a > 0u) {
-            DrawBevelDividerH(canvas, sr.x, sr.Right(), sr.Bottom() - 2.0f, theme.bevel);
+            DrawBevelDividerH(canvas, sr.x, sr.Right(), pg.PxToLogicalY(sp.y1 - step * 2), theme.bevel);
         }
         return;
     }
@@ -2664,7 +2809,7 @@ void DefaultStylePainter::DrawWindowControlButton(
     }
 
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
-        const Rect sr = SnapBevelRect(r);
+        const Rect sr = PixelGrid::From(canvas).SnapRect(r);
         const Color face = p.disabled
             ? pal.surface
             : (p.pressed ? pal.surfaceActive : (p.hovered ? pal.surfaceHover : pal.surface));

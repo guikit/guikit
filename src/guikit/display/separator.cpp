@@ -2,6 +2,7 @@
 #include "keel/math.h"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
+#include "guikit/core/pixel_grid.hpp"
 #include "guikit/style/style_painter.hpp"
 #include "guikit/core/node.hpp"
 
@@ -17,7 +18,18 @@ void detail::Separator::RenderLine(
     if (color.a == 0 || thickness <= 0.0f) {
         return;
     }
-    canvas.DrawLine(p0, p1, color, thickness);
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const keel::i32 thickPx = (thickness <= 1.05f) ? pg.UnitStepPx() : pg.StrokePx(thickness);
+    const keel::f32 snappedThick = (thickness <= 1.05f) ? pg.PxToDp(thickPx) : thickness;
+    if (keel::abs(p1.y - p0.y) < 0.01f) {
+        const keel::f32 sy = pg.SnapLineCenterY(p0.y, thickPx);
+        canvas.DrawLine(Vec2(pg.SnapEdgeX(p0.x), sy), Vec2(pg.SnapEdgeX(p1.x), sy), color, snappedThick);
+    } else if (keel::abs(p1.x - p0.x) < 0.01f) {
+        const keel::f32 sx = pg.SnapLineCenterX(p0.x, thickPx);
+        canvas.DrawLine(Vec2(sx, pg.SnapEdgeY(p0.y)), Vec2(sx, pg.SnapEdgeY(p1.y)), color, snappedThick);
+    } else {
+        canvas.DrawLine(p0, p1, color, snappedThick);
+    }
 }
 
 void detail::Separator::Render(
@@ -30,11 +42,11 @@ void detail::Separator::Render(
 ) noexcept {
     const Color stroke = color.a > 0 ? color : theme.palette.borderSubtle;
     if (orientation == Orientation::Vertical) {
-        const keel::f32 midY = keel::floor(bounds.Center().y) + 0.5f;
+        const keel::f32 midY = bounds.Center().y;
         const keel::f32 padX = keel::max(2.0f, bounds.w * insetRatio);
         theme.Painter().DrawDivider(canvas, theme, Vec2(bounds.x + padX, midY), Vec2(bounds.Right() - padX, midY), stroke, 1.0f);
     } else {
-        const keel::f32 midX = keel::floor(bounds.Center().x) + 0.5f;
+        const keel::f32 midX = bounds.Center().x;
         const keel::f32 padY = keel::max(2.0f, bounds.h * insetRatio);
         theme.Painter().DrawDivider(canvas, theme, Vec2(midX, bounds.y + padY), Vec2(midX, bounds.Bottom() - padY), stroke, 1.0f);
     }
@@ -92,14 +104,14 @@ void detail::Separator::Run(
         sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
             if (n->parent != nullptr && n->parent->type == NodeType::StatusBar) {
                 const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
-                const keel::f32 midX = keel::floor(n->computedRect.Center().x) + 0.5f;
+                const keel::f32 midX = n->computedRect.Center().x;
                 const keel::f32 centerY = n->computedRect.Center().y;
                 const keel::f32 halfH = keel::max(4.0f, keel::round(n->computedRect.h * 0.42f));
                 theme.Painter().DrawDivider(
                     canvas,
                     theme,
-                    Vec2(midX, keel::floor(centerY - halfH) + 0.5f),
-                    Vec2(midX, keel::floor(centerY + halfH) + 0.5f),
+                    Vec2(midX, centerY - halfH),
+                    Vec2(midX, centerY + halfH),
                     stroke,
                     1.0f
                 );
@@ -122,7 +134,7 @@ void detail::Separator::Run(
             };
         };
         sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-            const keel::f32 y = keel::floor(n->computedRect.Center().y) + 0.5f;
+            const keel::f32 y = n->computedRect.Center().y;
             const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
             keel::f32 padX = 2.0f;
             if (n->fixedWidth > 0.0f && n->fixedWidth < 1.0f) {

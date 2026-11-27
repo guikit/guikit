@@ -151,7 +151,7 @@ void RenderSplitButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme)
     );
 
     // Subtle vertical divider separating primary action from chevron trigger
-    const keel::f32 sepX = keel::floor(chevRect.x) + 0.5f;
+    const keel::f32 sepX = chevRect.x;
     const keel::f32 sepPadY = keel::round(fullRect.h * 0.18f);
     const Color sepBase = (p->btn.style == ButtonStyle::Solid || p->btn.variant == UiVariant::Primary ||
                            p->btn.variant == UiVariant::Success || p->btn.variant == UiVariant::Warning ||

@@ -504,10 +504,10 @@ void detail::Heading::Render(
         keel::f32 contentBottom = g.bounds.y;
         if (g.hasTitleBar) contentBottom = keel::max(contentBottom, g.titleBarRect.Bottom());
         if (g.hasDesc)     contentBottom = keel::max(contentBottom, g.descRect.Bottom());
-        const keel::f32 sepY = keel::floor(contentBottom + sepPad) + 0.5f;
+        const keel::f32 sepY = contentBottom + sepPad;
         theme.Painter().DrawDivider(canvas, theme, Vec2(g.bounds.x, sepY), Vec2(g.bounds.Right(), sepY), sepColor, sepStrokeW);
     } else if (opts.separator.placement == HeadingSeparator::Trailing && g.hasTitleBar && g.titleBarRect.h > 0.0f) {
-        const keel::f32 lineY = keel::floor(g.titleBarRect.y + g.titleBarRect.h * 0.5f) + 0.5f;
+        const keel::f32 lineY = g.titleBarRect.y + g.titleBarRect.h * 0.5f;
         if (opts.layout == HeadingLayout::Inline && g.hasDesc && g.descRect.w > 0.0f) {
             const keel::f32 bridgeStart = barRightX + m.gap;
             const keel::f32 bridgeEnd = g.descRect.x - m.gap;

@@ -330,6 +330,12 @@ public:
     /// Returns the current number of physical pixels per logical unit, including any pushed transforms.
     [[nodiscard]] virtual keel::f32 GetScale() const noexcept = 0;
 
+    /// Returns the composed affine transform mapping current logical coordinates directly
+    /// into physical framebuffer pixels: `p_px = GetPixelTransform().Apply(p_logical)`.
+    [[nodiscard]] virtual Transform2D GetPixelTransform() const noexcept {
+        return Transform2D{GetScale(), Vec2{0.0f, 0.0f}};
+    }
+
     /// Sets or overrides the current canvas scale factor.
     virtual void SetScale(keel::f32 scale) = 0;
 

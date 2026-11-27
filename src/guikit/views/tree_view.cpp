@@ -10,6 +10,7 @@
 #include "guikit/core/control.hpp"
 #include "guikit/core/element.hpp"
 #include "guikit/core/node.hpp"
+#include "guikit/core/pixel_grid.hpp"
 #include "guikit/style/style_painter.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/layout/scroll_area.hpp"
@@ -1649,8 +1650,11 @@ void detail::TreeView::RenderRow(
     }
 
     if (hasGridLines) {
-        const keel::f32 lineY = keel::floor(bounds.Bottom()) - 0.5f;
-        canvas.DrawLine({bounds.x, lineY}, {bounds.Right(), lineY}, pal.borderSubtle.WithAlpha(85), 1.0f);
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const keel::i32 step = pg.UnitStepPx();
+        const keel::f32 stepDp = pg.PxToDp(step);
+        const keel::f32 lineY = pg.SnapLineCenterY(bounds.Bottom() - stepDp * 0.5f, step);
+        canvas.DrawLine({bounds.x, lineY}, {bounds.Right(), lineY}, pal.borderSubtle.WithAlpha(85), stepDp);
     }
 
     // Left vertical accent indicator bar when selected in Indicator mode (modern translucent selection only)
@@ -1940,12 +1944,15 @@ void detail::TreeView::RenderHeader(
         });
     }
     if (!chromeM.recessedRegions) {
-        const keel::f32 hdrBotY = keel::floor(headerRect.Bottom()) - 0.5f;
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const keel::i32 step = pg.UnitStepPx();
+        const keel::f32 stepDp = pg.PxToDp(step);
+        const keel::f32 hdrBotY = pg.SnapLineCenterY(headerRect.Bottom() - stepDp * 0.5f, step);
         canvas.DrawLine(
             Vec2(headerRect.x, hdrBotY),
             Vec2(headerRect.Right(), hdrBotY),
             pal.border,
-            1.0f
+            stepDp
         );
     }
     canvas.PopClip();
@@ -1964,20 +1971,22 @@ void detail::TreeView::RenderOverlay(
     if (bodyRect.w <= 0.0f || bodyRect.h <= 0.0f) return;
 
     const auto& pal = theme.palette;
-    constexpr keel::f32 scale = 1.0f;
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const keel::i32 step = pg.UnitStepPx();
+    const keel::f32 stepDp = pg.PxToDp(step);
     const keel::f32 colOriginX = (tree->resolvedColTotalW > 0.0f) ? tree->resolvedColOriginX : bodyRect.x;
 
     canvas.PushClip(bodyRect);
 
     if (tree->opts.gridLines) {
         for (keel::u16 i = 0; i + 1 < tree->columnCount; ++i) {
-            const keel::f32 divX = keel::floor(colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i]) + 0.5f;
+            const keel::f32 divX = pg.SnapLineCenterX(colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i], step);
             if (divX >= bodyRect.x && divX < bodyRect.Right() - 0.5f) {
                 canvas.DrawLine(
                     Vec2(divX, bodyRect.y),
                     Vec2(divX, bodyRect.Bottom()),
                     pal.borderSubtle.WithAlpha(85),
-                    1.0f
+                    stepDp
                 );
             }
         }
@@ -1988,19 +1997,21 @@ void detail::TreeView::RenderOverlay(
         : tree->hoveredDividerCol;
     if (activeDivCol >= 0 && keel::as<keel::u16>(activeDivCol) + 1 < tree->columnCount) {
         const keel::u16 colIdx = keel::as<keel::u16>(activeDivCol);
+        const bool isDragging = (tree->state && tree->state->resizingCol >= 0);
+        const keel::i32 guidePx = pg.StrokePx(isDragging ? 1.5f : 1.0f);
         const keel::f32 guideX = keel::clamp(
-            keel::floor(colOriginX + tree->resolvedColX[colIdx] + tree->resolvedColW[colIdx]) + 0.5f,
+            pg.SnapLineCenterX(colOriginX + tree->resolvedColX[colIdx] + tree->resolvedColW[colIdx], guidePx),
             bodyRect.x + 1.0f,
             bodyRect.Right() - 1.5f
         );
-        const Color guideCol = (tree->state && tree->state->resizingCol >= 0)
+        const Color guideCol = isDragging
             ? pal.accent.WithAlpha(210)
             : pal.accent.WithAlpha(110);
         canvas.DrawLine(
             Vec2(guideX, bodyRect.y),
             Vec2(guideX, bodyRect.Bottom()),
             guideCol,
-            (tree->state && tree->state->resizingCol >= 0) ? (1.5f * scale) : 1.0f
+            pg.PxToDp(guidePx)
         );
     }
 
@@ -2023,9 +2034,12 @@ void detail::TreeView::RenderBranchGuides(
     const Node* firstChildBranch = parentRow->nextSibling;
     if (!firstChildBranch) return;
 
+    const PixelGrid pg = PixelGrid::From(canvas);
+    const keel::i32 step = pg.UnitStepPx();
+    const keel::f32 stepDp = pg.PxToDp(step);
     const RowMetrics rm = ComputeRowMetrics(*p, parentRow->uiSize, theme);
-    const keel::f32 guideX = keel::round(parentRow->computedRect.x + rm.padX + rm.indentWidth + rm.chevronSlotW * 0.5f) + 0.5f;
-    const keel::f32 startY = parentRow->computedRect.Bottom();
+    const keel::f32 guideX = pg.SnapLineCenterX(parentRow->computedRect.x + rm.padX + rm.indentWidth + rm.chevronSlotW * 0.5f, step);
+    const keel::f32 startY = pg.SnapEdgeY(parentRow->computedRect.Bottom());
 
     const Node* lastChildRow = nullptr;
     for (const Node* cb = firstChildBranch; cb != nullptr; cb = cb->nextSibling) {
@@ -2046,19 +2060,19 @@ void detail::TreeView::RenderBranchGuides(
         : pal.border.WithAlphaF(0.65f);
 
     const keel::f32 endY = (guides == TreeGuides::Connected)
-        ? (keel::round(lastChildRow->computedRect.Center().y) + 0.5f)
-        : lastChildRow->computedRect.Bottom();
+        ? pg.SnapLineCenterY(lastChildRow->computedRect.Center().y, step)
+        : pg.SnapEdgeY(lastChildRow->computedRect.Bottom());
 
     if (endY > startY) {
-        canvas.DrawLine({guideX, startY}, {guideX, endY}, guideCol, 1.0f);
+        canvas.DrawLine({guideX, startY}, {guideX, endY}, guideCol, stepDp);
     }
 
     if (guides == TreeGuides::Connected) {
         const keel::f32 tickLen = keel::max(6.0f, rm.indentStep - rm.chevronSlotW * 0.5f - 2.0f);
         for (const Node* cb = firstChildBranch; cb != nullptr; cb = cb->nextSibling) {
             if (cb->type == NodeType::TreeBranch && cb->firstChild && cb->firstChild->computedRect.h > 0.0f) {
-                const keel::f32 cy = keel::round(cb->firstChild->computedRect.Center().y) + 0.5f;
-                canvas.DrawLine({guideX, cy}, {guideX + tickLen, cy}, guideCol, 1.0f);
+                const keel::f32 cy = pg.SnapLineCenterY(cb->firstChild->computedRect.Center().y, step);
+                canvas.DrawLine({guideX, cy}, {guideX + tickLen, cy}, guideCol, stepDp);
             }
         }
     }

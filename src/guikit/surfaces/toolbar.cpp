@@ -156,7 +156,7 @@ void RenderToolButtonNode(const Node* n, ICanvas& canvas, const UiTheme& theme) 
     }
     detail::Button::Render(canvas, shiftedMainRect, mainBtn, n->uiSize, false, false, n->disabled, theme, false);
 
-    const keel::f32 sepX = keel::floor(chevRect.x) + 0.5f;
+    const keel::f32 sepX = chevRect.x;
     const keel::f32 sepPadY = (anyHov && !active) ? 2.0f : keel::round(fullRect.h * 0.20f);
     const Color sepCol = active
         ? textCol.WithAlphaF(n->disabled ? 0.15f : 0.28f)

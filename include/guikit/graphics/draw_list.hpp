@@ -165,8 +165,15 @@ public:
     // ICanvas
     void Begin(keel::u32 width, keel::u32 height, keel::f32 scale = 1.0f) override;
     void End() override;
-    [[nodiscard]] keel::f32 GetScale() const noexcept override { return m_scale * m_xfScale; }
-    void SetScale(keel::f32 scale) override { m_scale = (scale > 0.0f) ? scale : 1.0f; }
+    [[nodiscard]] keel::f32 GetScale() const noexcept override { return m_baseTransform.scale * m_xfScale; }
+    [[nodiscard]] Transform2D GetPixelTransform() const noexcept override {
+        return m_baseTransform.Then(Transform2D{m_xfScale, m_xfOffset});
+    }
+    void SetScale(keel::f32 scale) override {
+        const keel::f32 s = (scale > 0.0f) ? scale : 1.0f;
+        m_scale = s;
+        m_baseTransform.scale = s;
+    }
     void PushTransform(const Transform2D& transform) override;
     void PopTransform() override;
     [[nodiscard]] keel::StringRef GetBackendName() const noexcept override {
@@ -235,6 +242,7 @@ private:
 
     DrawList& m_list;
     ICanvas* m_target{nullptr};
+    Transform2D m_baseTransform{1.0f, Vec2{0.0f, 0.0f}};
     keel::f32 m_scale{1.0f};
     keel::f32 m_xfScale{1.0f};
     Vec2 m_xfOffset{0.0f, 0.0f};
