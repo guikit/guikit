@@ -93,6 +93,40 @@ struct RangeSliderOptions {
     StateColor color{};                               ///< Per-state semantic accent color for active interval and thumbs
 };
 
+/// Clean configuration options for HybridSlider (discrete leading stops + continuous numeric range).
+///
+/// Horizontal layout places discrete stop ticks on the left (e.g. `"Off"`, or `"Off"` + `"Auto"`),
+/// separated by a visual break from the continuous `[min .. max]` track on the right. By default
+/// (`showStopLabels = true`, `showValue = true`, `valuePlacement = Placement::Bottom`), stop labels
+/// sit below their ticks on the left (active stop highlighted) and the formatted manual value sits
+/// right-aligned in the same bottom row only when in continuous mode (hidden while on a stop).
+///
+/// `orientation = Orientation::Vertical`: stops sit at the bottom below a visual break with the
+/// continuous fader extending upward; stop labels sit right of the lower ticks and the manual value
+/// sits right of the upper end when in continuous mode.
+struct HybridSliderOptions {
+    Orientation orientation{Orientation::Horizontal}; ///< Horizontal (stops left) or Vertical (stops bottom); Both = Horizontal
+    UiText textLeft{};                                ///< Optional companion text on the start end (below track when Vertical)
+    UiText textRight{};                               ///< Optional companion text on the max end (above track when Vertical)
+    keel::ArrayRef<keel::StringRef> stops{};          ///< Discrete leading stop labels (empty -> {"Off"})
+    UiText valueFormat{};                             ///< Format string and style for manual value (e.g. "%.0f dp", "%.1f %%")
+    keel::Optional<keel::f64> step{keel::kNullOpt};   ///< Continuous range step quantization (defaults to 1.0 for integers, continuous for float)
+    bool showTicks{true};                             ///< Whether to render discrete stop tick marks
+    bool showStopLabels{true};                        ///< Whether to render stop labels below ticks (right of them when Vertical)
+    bool showValue{true};                             ///< Whether to display current manual value (and stop label when stop labels are hidden)
+    Placement valuePlacement{Placement::Bottom};      ///< Value placement: Bottom (shared bottom row right-aligned), Trailing, Leading, Top, Thumb
+    UiText tooltip{};                                 ///< Optional floating tooltip text on hover
+    bool disabled{false};                             ///< Interaction suppression
+    UiSize size{UiSize::Md};                          ///< Control size token (`Xs`..`Xl`, `Dp(...)`, `Factor(...)`)
+    AxisSize width{};                                 ///< Horizontal sizing policy (`Auto` -> `Stretch` when horizontal, `Fit` when vertical)
+    AxisSize height{};                                ///< Vertical sizing policy (`Auto` -> `Fit` when horizontal, `Stretch` when vertical)
+    keel::Optional<keel::f32> minWidth{keel::kNullOpt};   ///< Optional minimum width in logical dp
+    keel::Optional<keel::f32> maxWidth{keel::kNullOpt};   ///< Optional maximum width in logical dp
+    keel::Optional<keel::f32> minHeight{keel::kNullOpt};  ///< Optional minimum height in logical dp
+    keel::Optional<keel::f32> maxHeight{keel::kNullOpt};  ///< Optional maximum height in logical dp
+    StateColor color{};                               ///< Per-state semantic accent color for active track and thumb
+};
+
 /// Internal runtime interaction state stored per-widget ID.
 struct SliderState {
     bool dragging{false};
@@ -266,6 +300,71 @@ public:
 
 } // namespace detail
 
+/// Autonomous hybrid discrete-stops + continuous-range HybridSlider widget logic.
+namespace detail {
+
+class HybridSlider {
+public:
+    static Response Run(
+        Context& ctx,
+        keel::usize* modeIndex,
+        keel::usize stopCount,
+        keel::f64* valDouble,
+        keel::f32* valFloat,
+        keel::i64* valInt,
+        keel::f64 min,
+        keel::f64 max,
+        const HybridSliderOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    );
+
+    static Vec2 Measure(
+        const HybridSliderOptions& opts,
+        keel::usize modeIndex,
+        keel::usize stopCount,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
+        bool isInt,
+        UiSize size,
+        ICanvas* canvas,
+        const UiTheme& theme,
+        keel::f32 availableWidth = 0.0f
+    );
+    static Vec2 Measure(
+        const HybridSliderOptions& opts,
+        keel::usize modeIndex,
+        keel::usize stopCount,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
+        bool isInt,
+        UiSize size,
+        ICanvas* canvas = nullptr,
+        keel::f32 availableWidth = 0.0f
+    );
+
+    static void Render(
+        ICanvas& canvas,
+        Rect bounds,
+        keel::usize modeIndex,
+        keel::usize stopCount,
+        keel::f64 value,
+        keel::f64 min,
+        keel::f64 max,
+        bool isInt,
+        const HybridSliderOptions& opts,
+        UiSize size,
+        bool hovered,
+        bool active,
+        bool disabled,
+        const UiTheme& theme,
+        bool focused = false
+    );
+};
+
+} // namespace detail
+
 template <SliderNumeric T>
 Response Slider(
     Context& ui,
@@ -367,5 +466,110 @@ Response StepSlider(
     StepSliderOptions opts = {},
     keel::SourceLocation loc = keel::SourceLocation::current()
 );
+
+/// HybridSlider with 1 discrete leading stop (default `"Off"`, customizable via `opts.stops`) + continuous `[min .. max]` value.
+/// Direct drop-in replacement for a `Switch` + `Slider` pair (`enabled == false` -> stop, `enabled == true` -> continuous `value`).
+template <SliderNumeric T>
+Response HybridSlider(
+    Context& ui,
+    bool& enabled,
+    T& value,
+    T min,
+    T max,
+    HybridSliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    keel::usize mode = enabled ? 1u : 0u;
+    Response res{};
+    if constexpr (keel::IsSame<keel::Decay<T>, keel::f64>) {
+        res = detail::HybridSlider::Run(ui, &mode, 1u, &value, nullptr, nullptr, min, max, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::f32>) {
+        res = detail::HybridSlider::Run(ui, &mode, 1u, nullptr, &value, nullptr, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+    } else {
+        keel::i64 val64 = keel::as<keel::i64>(value);
+        res = detail::HybridSlider::Run(ui, &mode, 1u, nullptr, nullptr, &val64, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+        if (res.changed && mode >= 1u) {
+            value = keel::as<T>(val64);
+        }
+    }
+    if (res.changed) {
+        enabled = (mode >= 1u);
+    }
+    return res;
+}
+
+/// HybridSlider bound to `keel::Optional<T>`: `keel::kNullOpt` selects the leading stop (e.g. `"Off"` / `"Auto"`),
+/// any engaged value selects the continuous `[min .. max]` range.
+template <SliderNumeric T>
+Response HybridSlider(
+    Context& ui,
+    keel::Optional<T>& value,
+    T min,
+    T max,
+    HybridSliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    keel::usize mode = value.has_value() ? 1u : 0u;
+    T rawVal = value.value_or(min);
+    Response res{};
+    if constexpr (keel::IsSame<keel::Decay<T>, keel::f64>) {
+        res = detail::HybridSlider::Run(ui, &mode, 1u, &rawVal, nullptr, nullptr, min, max, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::f32>) {
+        res = detail::HybridSlider::Run(ui, &mode, 1u, nullptr, &rawVal, nullptr, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+    } else {
+        keel::i64 val64 = keel::as<keel::i64>(rawVal);
+        res = detail::HybridSlider::Run(ui, &mode, 1u, nullptr, nullptr, &val64, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+        if (res.changed && mode >= 1u) {
+            rawVal = keel::as<T>(val64);
+        }
+    }
+    if (res.changed) {
+        if (mode == 0u) {
+            value = keel::kNullOpt;
+        } else {
+            value = rawVal;
+        }
+    }
+    return res;
+}
+
+/// General N-stop HybridSlider (`0 .. stops.size()-1` = discrete leading stops, `stops.size()` = continuous `[min .. max]` value).
+/// Supports integers, `keel::usize`, and `enum class` mode variables (e.g. `enum class Mode { Off, Auto, Manual }`).
+template <IndexLike IndexT, SliderNumeric T>
+    requires (!keel::IsConst<IndexT> && !keel::IsSame<keel::Decay<IndexT>, bool>)
+Response HybridSlider(
+    Context& ui,
+    IndexT& mode,
+    T& value,
+    T min,
+    T max,
+    keel::ArrayRef<keel::StringRef> stops,
+    HybridSliderOptions opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    opts.stops = stops;
+    const keel::usize stopCount = stops.empty() ? 1u : stops.size();
+    const keel::i32 rawMode = keel::as<keel::i32>(mode);
+    keel::usize modeIdx = keel::as<keel::usize>(keel::max(0, rawMode));
+    Response res{};
+    if constexpr (keel::IsSame<keel::Decay<T>, keel::f64>) {
+        res = detail::HybridSlider::Run(ui, &modeIdx, stopCount, &value, nullptr, nullptr, min, max, opts, loc);
+    } else if constexpr (keel::IsSame<keel::Decay<T>, keel::f32>) {
+        res = detail::HybridSlider::Run(ui, &modeIdx, stopCount, nullptr, &value, nullptr, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+    } else {
+        keel::i64 val64 = keel::as<keel::i64>(value);
+        res = detail::HybridSlider::Run(ui, &modeIdx, stopCount, nullptr, nullptr, &val64, keel::as<keel::f64>(min), keel::as<keel::f64>(max), opts, loc);
+        if (res.changed && modeIdx >= stopCount) {
+            value = keel::as<T>(val64);
+        }
+    }
+    if (res.changed) {
+        mode = detail::FromIndexLike<IndexT>(keel::as<keel::i32>(modeIdx));
+    }
+    return res;
+}
 
 } // namespace guikit

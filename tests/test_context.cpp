@@ -11828,6 +11828,7 @@ void TestTableUnlimitedColumnsAndSelection();
 void TestTableProductionFeatures();
 void TestClassicBorderOverrides();
 void TestDockAreaInteractiveWorkflow();
+void TestHybridSliderWorkflow();
 
 void TestZonePartialThemeOverrides() {
     using namespace guikit;
@@ -11918,6 +11919,7 @@ int main() {
     TestTableProductionFeatures();
     TestClassicBorderOverrides();
     TestDockAreaInteractiveWorkflow();
+    TestHybridSliderWorkflow();
     TestTextWrappingAndBackendIndependence();
 
 #if defined(GUIKIT_HAS_BACKEND_THORVG) && GUIKIT_HAS_BACKEND_THORVG
@@ -20344,6 +20346,195 @@ void TestDockAreaInteractiveWorkflow() {
     }
 
     keel::println("  [PASS] TestDockAreaInteractiveWorkflow completed");
+}
+
+void TestHybridSliderWorkflow() {
+    keel::println("  -> TestHybridSliderWorkflow...");
+    NullCanvas canvas;
+
+    // 1. 1-stop bool& overload (Off | 1..100): direct click, drag detent barrier, keyboard & wheel
+    {
+        Context ui;
+        bool enabled = false;
+        keel::f32 val = 40.0f;
+        Response lastRes{};
+        auto frame = [&]() {
+            ui.BeginFrame({320.0f, 120.0f}, 1.0f);
+            if (auto col = guikit::Column(ui, {.padding = Padding::All(16.0f)})) {
+                lastRes = guikit::HybridSlider(ui, enabled, val, 1.0f, 100.0f, {
+                    .valueFormat = "%.0f %%",
+                    .width = AxisSize::Fixed(240.0f)
+                });
+            }
+            ui.EndFrame(canvas);
+        };
+
+        frame();
+        frame();
+        CHECK(lastRes.rect.w > 200.0f);
+        CHECK(lastRes.rect.h > 20.0f);
+        CHECK(!enabled);
+        CHECK_NEAR(val, 40.0f, 0.01f);
+
+        // Idle frame should not generate dirty damage
+        frame();
+        CHECK(!ui.HasDirtyDamage());
+
+        // Direct click near right half of continuous track -> enables and updates value > 50
+        const keel::f32 midY = lastRes.rect.y + 12.0f;
+        ui.OnMouseMove({lastRes.rect.x + 170.0f, midY});
+        frame();
+        ui.OnMouseDown(1);
+        frame();
+        CHECK(enabled);
+        CHECK(val > 50.0f && val < 95.0f);
+
+        // Drag left to continuous `min` edge (~x + 30): should hit min (1.0) while STAYING enabled (detent barrier!)
+        ui.OnMouseMove({lastRes.rect.x + 28.0f, midY});
+        frame();
+        CHECK(enabled);
+        CHECK_NEAR(val, 1.0f, 5.0f);
+
+        // Push further left past detent barrier -> snaps to Off (enabled = false)
+        ui.OnMouseMove({lastRes.rect.x + 4.0f, midY});
+        frame();
+        CHECK(!enabled);
+        const keel::f32 preservedVal = val;
+
+        // Release mouse, then push keyboard Right -> enters continuous mode at min (1.0)
+        ui.OnMouseUp(1);
+        frame();
+        ui.OnKeyDown(Key::Right);
+        frame();
+        CHECK(enabled);
+        CHECK_NEAR(val, 1.0f, 0.01f);
+        CHECK(preservedVal >= 1.0f);
+
+        // Keyboard Left at min -> steps back into Off
+        ui.OnKeyDown(Key::Left);
+        frame();
+        CHECK(!enabled);
+
+        // Keyboard End -> jumps to max (100.0)
+        ui.OnKeyDown(Key::End);
+        frame();
+        CHECK(enabled);
+        CHECK_NEAR(val, 100.0f, 0.01f);
+
+        // Keyboard Home -> jumps to Off
+        ui.OnKeyDown(Key::Home);
+        frame();
+        CHECK(!enabled);
+
+        // Mouse wheel up while hovered -> steps into min (1.0), then increments
+        ui.OnMouseMove({lastRes.rect.Center().x, midY});
+        frame();
+        ui.OnMouseWheel(0.0f, 1.0f);
+        frame();
+        CHECK(enabled);
+        CHECK_NEAR(val, 1.0f, 0.01f);
+        ui.OnMouseWheel(0.0f, 1.0f);
+        frame();
+        CHECK(val > 1.0f);
+    }
+
+    // 2. keel::Optional<f32> overload (Auto | 4..24)
+    {
+        Context ui;
+        keel::Optional<keel::f32> optWidth = keel::kNullOpt;
+        Response lastRes{};
+        static constexpr keel::StaticArray<keel::StringRef, 1> kAuto = {"Auto"};
+        auto frame = [&]() {
+            ui.BeginFrame({320.0f, 120.0f}, 1.0f);
+            if (auto col = guikit::Column(ui, {.padding = Padding::All(16.0f)})) {
+                lastRes = guikit::HybridSlider(ui, optWidth, 4.0f, 24.0f, {
+                    .stops = kAuto,
+                    .valueFormat = "%.0f dp",
+                    .step = 1.0,
+                    .width = AxisSize::Fixed(240.0f)
+                });
+            }
+            ui.EndFrame(canvas);
+        };
+        frame();
+        frame();
+        CHECK(!optWidth.has_value());
+
+        // Click on continuous region -> engages optional
+        ui.OnMouseMove({lastRes.rect.x + 160.0f, lastRes.rect.y + 12.0f});
+        frame();
+        ui.OnMouseDown(1);
+        frame();
+        ui.OnMouseUp(1);
+        frame();
+        CHECK(optWidth.has_value());
+        CHECK(*optWidth >= 4.0f && *optWidth <= 24.0f);
+
+        // Click back on Auto stop -> resets to kNullOpt
+        ui.OnMouseMove({lastRes.rect.x + 6.0f, lastRes.rect.y + 12.0f});
+        frame();
+        ui.OnMouseDown(1);
+        frame();
+        ui.OnMouseUp(1);
+        frame();
+        CHECK(!optWidth.has_value());
+    }
+
+    // 3. Multi-stop enum class overload (Off | Auto | 1..100) + Vertical measure/render smoke test
+    {
+        enum class GainMode : keel::i32 { Off = 0, Auto = 1, Manual = 2 };
+        Context ui;
+        GainMode mode = GainMode::Off;
+        keel::f32 gain = 50.0f;
+        Response lastRes{};
+        static constexpr keel::StaticArray<keel::StringRef, 2> kStops = {"Off", "Auto"};
+        auto frame = [&]() {
+            ui.BeginFrame({360.0f, 240.0f}, 1.0f);
+            if (auto row = guikit::Row(ui, {.gap = 16.0f, .padding = Padding::All(16.0f)})) {
+                lastRes = guikit::HybridSlider(ui, mode, gain, 1.0f, 100.0f, kStops, {
+                    .valueFormat = "%.0f %%",
+                    .width = AxisSize::Fixed(240.0f)
+                });
+                // Vertical fader orientation smoke test
+                guikit::HybridSlider(ui, mode, gain, 1.0f, 100.0f, kStops, {
+                    .orientation = Orientation::Vertical,
+                    .valueFormat = "%.0f %%",
+                    .height = AxisSize::Fixed(160.0f)
+                });
+            }
+            ui.EndFrame(canvas);
+        };
+        frame();
+        frame();
+
+        // Click on Off to focus, then step Right: Off -> Auto -> Manual(1.0) -> Manual(>1.0)
+        ui.OnMouseMove({lastRes.rect.x + 6.0f, lastRes.rect.y + 12.0f});
+        frame();
+        ui.OnMouseDown(1);
+        frame();
+        ui.OnMouseUp(1);
+        frame();
+        CHECK(mode == GainMode::Off);
+
+        ui.OnKeyDown(Key::Right);
+        frame();
+        CHECK(mode == GainMode::Auto);
+
+        ui.OnKeyDown(Key::Right);
+        frame();
+        CHECK(mode == GainMode::Manual);
+        CHECK_NEAR(gain, 1.0f, 0.01f);
+
+        ui.OnKeyDown(Key::Left);
+        frame();
+        CHECK(mode == GainMode::Auto);
+
+        ui.OnKeyDown(Key::Left);
+        frame();
+        CHECK(mode == GainMode::Off);
+    }
+
+    keel::println("  [PASS] TestHybridSliderWorkflow completed");
 }
 
 

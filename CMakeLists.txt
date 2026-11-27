@@ -164,6 +164,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/display/image.cpp
     src/guikit/views/image_view.cpp
     src/guikit/fields/input_field.cpp
+    src/guikit/controls/hybrid_slider.cpp
     src/guikit/controls/knob.cpp
     src/guikit/views/markdown.cpp
     src/guikit/views/markdown_parser.cpp

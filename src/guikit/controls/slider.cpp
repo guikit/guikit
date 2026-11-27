@@ -100,10 +100,10 @@ SliderControlMetrics ComputeSliderControlMetrics(
             }
         } else {
             cm.valReserveW = keel::max(cm.valReserveW, TextUtil::MeasureWidth(valueStyle, cm.valFont, canvas));
-            for (keel::StringRef cand : extraValCandidates) {
-                if (!cand.empty()) {
-                    cm.valReserveW = keel::max(cm.valReserveW, TextUtil::MeasureWidth(cand, cm.valFont, canvas));
-                }
+        }
+        for (keel::StringRef cand : extraValCandidates) {
+            if (!cand.empty()) {
+                cm.valReserveW = keel::max(cm.valReserveW, TextUtil::MeasureWidth(cand, cm.valFont, canvas));
             }
         }
     }

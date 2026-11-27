@@ -154,6 +154,7 @@ enum class NodeType : keel::u16 {
     TagInput        = 238,
     Tag             = 239,
     Readout         = 240,
+    HybridSlider    = 241,
 
     // --- User Extension Base (1000+) ---
     User          = 1000
@@ -440,6 +441,7 @@ struct Node {
             case NodeType::TagInput:        return "TagInput";
             case NodeType::Tag:             return "Tag";
             case NodeType::Readout:         return "Readout";
+            case NodeType::HybridSlider:    return "HybridSlider";
             default:
                 if (keel::as<keel::u16>(type) >= keel::as<keel::u16>(NodeType::User)) {
                     return !text.empty() ? text : keel::StringRef("UserWidget");
