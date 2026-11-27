@@ -493,7 +493,25 @@ ElementScope detail::Element::Open(
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* ep = n->As<ElementPayload>();
         if (!ep) return;
-        const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
+        ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
+        const Node* p = n->parent;
+        const bool onActiveTreeRow =
+            (p && p->type == NodeType::TreeItem && p->active) ||
+            (p && p->parent && p->parent->type == NodeType::TreeItem && p->parent->active);
+        const bool onSolidSel = onActiveTreeRow && theme.Painter().GetChromeMetrics(theme).solidSelectionHighlight;
+        if (onSolidSel) {
+            const auto& pal = theme.palette;
+            if (!spec.label.color.HasAny()) {
+                spec.label.color = StateColor{pal.accentText};
+            }
+            if (!spec.description.color.HasAny()) {
+                spec.description.color = StateColor{pal.accentText.WithAlphaF(0.86f)};
+            }
+            if (!spec.badge.empty()) {
+                spec.badge.color = StateColor{pal.accentText};
+            }
+            spec.active = true;
+        }
         if (!spec.hasControl) {
             detail::Element::Render(canvas, n->computedRect, spec, theme);
             return;
@@ -1014,7 +1032,10 @@ void detail::Element::RenderText(
             if (spec.badge.color.HasAny()) {
                 const Color resolvedBadge = theme.ResolveColor(spec.badge.color, spec.hovered, spec.active, spec.disabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(spec.disabled ? 0.12f : 0.22f);
-                badgeTextCol = spec.disabled ? resolvedBadge.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolvedBadge, pal.surface);
+                const Color refBg = (spec.active && theme.Painter().GetChromeMetrics(theme).solidSelectionHighlight)
+                    ? pal.accent
+                    : pal.surface;
+                badgeTextCol = spec.disabled ? resolvedBadge.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolvedBadge, refBg);
                 badgeBorderCol = resolvedBadge.WithAlphaF(spec.disabled ? 0.25f : 0.50f);
                 badgeBorderW = 1.0f;
             } else if (spec.disabled) {

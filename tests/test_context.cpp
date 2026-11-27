@@ -10260,6 +10260,63 @@ void TestTreeViewAndTreeItemWorkflow() {
 
     CHECK(multiColSelected == 0);
 
+    // 6. Windows 98 (Classic 3D) TreeView: solid selection highlight, [+] / [-] expander, sunken checkboxes, 3D column headers
+    {
+        ui.SetTheme(UiTheme::Windows98());
+        const ChromeMetrics win98Metrics = ui.GetTheme().Painter().GetChromeMetrics(ui.GetTheme());
+        CHECK(win98Metrics.solidSelectionHighlight == true);
+        CHECK(win98Metrics.recessedRegions == true);
+        CHECK(win98Metrics.frameBevelInset > 0.0f);
+
+        bool win98Expanded = true;
+        bool win98RootChecked = true;
+        bool win98ChildChecked = false;
+        keel::i32 win98Selected = 0;
+        keel::StaticArray<TableColumn, 2> win98Cols = {{
+            {.title = "Node", .width = 1.0f},
+            {.title = "Spec", .width = 120.0f}
+        }};
+        Response win98RootRes{};
+        Response win98ChildRes{};
+
+        for (keel::i32 f = 0; f < 2; ++f) {
+            ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
+            if (auto tree = guikit::TreeView(ui, {
+                .title = "WIN98 HIERARCHY",
+                .columns = keel::ArrayRef<TableColumn>(win98Cols),
+                .searchable = true,
+                .showToolbar = true,
+                .selectedIndex = &win98Selected,
+                .width = 480.0f,
+                .height = 240.0f,
+            })) {
+                if (auto root = guikit::TreeItem(ui, win98Expanded, {
+                    .label = "Scene Root",
+                    .description = "Selected on solid accent",
+                    .badge = "2 nodes",
+                    .checked = &win98RootChecked,
+                    .indeterminate = true,
+                })) {
+                    guikit::Text(ui, "Viewport");
+                    guikit::Element(ui, {.badge = {"5 nodes", UiVariant::Primary}, .width = SizeMode::Fit});
+                    win98RootRes = root.response;
+                    if (auto child = guikit::TreeItem(ui, {
+                        .label = "Child Node",
+                        .checked = &win98ChildChecked,
+                    })) {
+                        guikit::Text(ui, "6500K");
+                        win98ChildRes = child.response;
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        }
+
+        CHECK(win98RootRes.rect.w > 200.0f);
+        CHECK(win98ChildRes.rect.y > win98RootRes.rect.y);
+        ui.SetTheme(UiTheme::Dark());
+    }
+
     keel::println("  [PASS] TestTreeViewAndTreeItemWorkflow completed");
 }
 

@@ -546,6 +546,18 @@ public:
         const TableHeaderCellPaintParams& p
     ) const = 0;
 
+    /// Draws a tree branch expander glyph (`[+]`/`[-]` box in Classic3D, chevron arrows otherwise).
+    virtual void DrawTreeExpander(
+        ICanvas& canvas,
+        const UiTheme& theme,
+        Rect rect,
+        bool expanded,
+        bool hovered,
+        bool selected,
+        bool disabled,
+        Color fallbackColor
+    ) const = 0;
+
     /// Returns chrome-driven geometry & foreground ink tokens for `guikit::HeaderBar`.
     [[nodiscard]] virtual HeaderBarChromeMetrics GetHeaderBarMetrics(
         const UiTheme& theme,
@@ -599,6 +611,7 @@ public:
     void DrawSplitSash(ICanvas& canvas, const UiTheme& theme, Rect sashRect, bool verticalBar, bool showGrip, bool hovered, bool dragging, bool disabled) const override;
     void DrawPanelToggle(ICanvas& canvas, const UiTheme& theme, const PanelTogglePaintParams& p) const override;
     void DrawTableHeaderCell(ICanvas& canvas, const UiTheme& theme, const TableHeaderCellPaintParams& p) const override;
+    void DrawTreeExpander(ICanvas& canvas, const UiTheme& theme, Rect rect, bool expanded, bool hovered, bool selected, bool disabled, Color fallbackColor) const override;
     [[nodiscard]] HeaderBarChromeMetrics GetHeaderBarMetrics(const UiTheme& theme, bool focused) const noexcept override;
     void DrawHeaderBar(ICanvas& canvas, const UiTheme& theme, const HeaderBarPaintParams& p) const override;
     void DrawWindowControlButton(ICanvas& canvas, const UiTheme& theme, const WindowControlPaintParams& p) const override;

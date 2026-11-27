@@ -1,5 +1,6 @@
 #include "guikit/style/style_painter.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/graphics/icon.hpp"
 #include "keel/math.h"
 
 namespace guikit {
@@ -2397,6 +2398,59 @@ void DefaultStylePainter::DrawTableHeaderCell(
             divThick
         );
     }
+}
+
+void DefaultStylePainter::DrawTreeExpander(
+    ICanvas& canvas,
+    const UiTheme& theme,
+    Rect rect,
+    bool expanded,
+    bool hovered,
+    bool /*selected*/,
+    bool disabled,
+    Color fallbackColor
+) const {
+    if (rect.w <= 0.0f || rect.h <= 0.0f) return;
+
+    if (theme.chrome.frame == FrameTreatment::Bevel3D) {
+        const auto& pal = theme.palette;
+        // Authentic Windows 98 SysTreeView32 9x9 pixel-snapped [+] / [-] expander box
+        keel::f32 boxSz = keel::clamp(keel::floor(keel::min(rect.w, rect.h) * 0.78f), 9.0f, 11.0f);
+        if ((keel::as<keel::i32>(boxSz) & 1) == 0) {
+            boxSz -= 1.0f;
+        }
+        const keel::f32 cx = keel::floor(rect.Center().x);
+        const keel::f32 cy = keel::floor(rect.Center().y);
+        const keel::f32 half = keel::floor(boxSz * 0.5f);
+        const Rect box(cx - half, cy - half, boxSz, boxSz);
+
+        const Color fillCol = disabled ? pal.surface : pal.inputBackground;
+        const Color borderCol = disabled
+            ? pal.borderSubtle
+            : (hovered ? Color::Lerp(pal.border, pal.textPrimary, 0.35f) : pal.border);
+        const Color inkCol = disabled
+            ? pal.textDisabled
+            : ResolveContrastInk(fillCol, pal.textPrimary, theme.bevel);
+
+        canvas.DrawRect(box, fillCol);
+        // Crisp 1px perimeter border
+        canvas.DrawRect(Rect(box.x, box.y, box.w, 1.0f), borderCol);
+        canvas.DrawRect(Rect(box.x, box.Bottom() - 1.0f, box.w, 1.0f), borderCol);
+        canvas.DrawRect(Rect(box.x, box.y, 1.0f, box.h), borderCol);
+        canvas.DrawRect(Rect(box.Right() - 1.0f, box.y, 1.0f, box.h), borderCol);
+
+        // Centered '-' bar (and vertical '|' bar when collapsed to form '+')
+        const keel::f32 barSpan = keel::max(3.0f, boxSz - 4.0f);
+        const keel::f32 barHalf = keel::floor(barSpan * 0.5f);
+        canvas.DrawRect(Rect(cx - barHalf, cy, barSpan, 1.0f), inkCol);
+        if (!expanded) {
+            canvas.DrawRect(Rect(cx, cy - barHalf, 1.0f, barSpan), inkCol);
+        }
+        return;
+    }
+
+    const Icon chev = expanded ? Icon::ChevronDown() : Icon::ChevronRight();
+    chev.Draw(canvas, rect, fallbackColor);
 }
 
 namespace {

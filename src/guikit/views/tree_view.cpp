@@ -621,7 +621,11 @@ TreeViewScope detail::TreeView::Open(
         outerNode->flexGrow = Control::ResolveFlexGrow(outerNode->parent, opts.width, opts.height, 1.0f);
     }
 
+    const ChromeMetrics chromeM = theme.Painter().GetChromeMetrics(theme);
     outerNode->SetSurfaceRole((opts.border.width > 0.0f) ? SurfaceRole::Sunken : SurfaceRole::None);
+    if (opts.border.width > 0.0f && chromeM.frameBevelInset > 0.0f) {
+        outerNode->padding = Padding::All(chromeM.frameBevelInset);
+    }
     outerNode->cornerRadius = opts.border.radius.has_value()
         ? *opts.border.radius
         : theme.GetRadius(activeSize);
@@ -639,7 +643,7 @@ TreeViewScope detail::TreeView::Open(
             pal.borderSubtle.WithAlphaF(theme.disabledOpacity)
         );
     }
-    const bool recessedWell = theme.Painter().GetChromeMetrics(theme).recessedRegions && (opts.border.width > 0.0f);
+    const bool recessedWell = chromeM.recessedRegions && (opts.border.width > 0.0f);
     const Color defaultBg = recessedWell ? pal.inputBackground : pal.surface;
     if (opts.background.IsNone()) {
         outerNode->backgroundColor = Color::Transparent();
@@ -774,10 +778,13 @@ TreeViewScope detail::TreeView::Open(
             .padding = Padding(barPad, barPad, barPad, barPad),
             .align = Alignment::Center
         })) {
+            if (recessedWell && bar.GetNode()) {
+                bar.GetNode()->backgroundColor = pal.surface;
+            }
             if (!opts.title.empty()) {
                 guikit::Text(ctx, opts.title, {
                     .role = TextRole::LabelSmall,
-                    .variant = UiVariant::Secondary
+                    .variant = recessedWell ? UiVariant::Default : UiVariant::Secondary
                 });
                 if (!opts.searchable) {
                     guikit::Spacer(ctx);
@@ -833,7 +840,7 @@ TreeViewScope detail::TreeView::Open(
         if (auto sep = guikit::Box(ctx, {
             .width = SizeMode::Stretch,
             .height = 1.0f,
-            .background = {pal.borderSubtle}
+            .background = {recessedWell ? pal.border : pal.borderSubtle}
         })) {}
     }
 
@@ -1581,6 +1588,8 @@ void detail::TreeView::RenderRow(
     const bool selected = p->selected;
     const bool isBranch = p->hasChildItems || p->opts.forceBranch;
 
+    const ChromeMetrics chromeM = theme.Painter().GetChromeMetrics(theme);
+    const bool solidSel = chromeM.solidSelectionHighlight;
     const TreeSelectionStyle selStyle = p->tree ? p->tree->opts.selectionStyle : TreeSelectionStyle::Indicator;
     const Color accentCol = p->opts.color.HasAny()
         ? theme.ResolveColor(p->opts.color, hovered, selected, disabled, pal.accent)
@@ -1588,11 +1597,13 @@ void detail::TreeView::RenderRow(
             ? theme.ResolveColor(p->tree->opts.color, hovered, selected, disabled, pal.accent)
             : pal.accent);
     const bool hasGridLines = (p->tree != nullptr && p->tree->opts.gridLines);
+    const keel::f32 themeRadius = theme.GetRadius(rowNode->uiSize);
     const keel::f32 radius = p->opts.border.radius.has_value()
         ? *p->opts.border.radius
-        : (hasGridLines ? 0.0f : keel::max(4.0f, theme.GetRadius(rowNode->uiSize) * 0.70f));
+        : ((hasGridLines || solidSel || themeRadius <= 0.01f) ? 0.0f : keel::max(4.0f, themeRadius * 0.70f));
 
     // 1. Row background (zebra stripe, custom background, hover, selection)
+    const bool onSolidSel = selected && solidSel && !p->opts.background.HasAny();
     Color rowBg = Color::Transparent();
     if (p->tree && p->tree->opts.striped && (p->visibleRowIndex & 1) == 1) {
         rowBg = pal.surfaceHover.WithAlphaF(0.22f);
@@ -1609,10 +1620,14 @@ void detail::TreeView::RenderRow(
             pal.surfaceHover.WithAlphaF(0.30f)
         );
     } else if (selected) {
-        const keel::f32 alpha = (selStyle == TreeSelectionStyle::Pill)
-            ? (hovered ? 0.26f : 0.20f)
-            : (hovered ? 0.20f : 0.14f);
-        rowBg = accentCol.WithAlphaF(disabled ? 0.08f : alpha);
+        if (solidSel) {
+            rowBg = disabled ? accentCol.WithAlphaF(theme.disabledOpacity) : accentCol;
+        } else {
+            const keel::f32 alpha = (selStyle == TreeSelectionStyle::Pill)
+                ? (hovered ? 0.26f : 0.20f)
+                : (hovered ? 0.20f : 0.14f);
+            rowBg = accentCol.WithAlphaF(disabled ? 0.08f : alpha);
+        }
     } else if (!disabled && (hovered || pressed)) {
         rowBg = pressed ? pal.surfaceActive.WithAlphaF(0.75f) : pal.surfaceHover.WithAlphaF(0.55f);
     }
@@ -1627,6 +1642,9 @@ void detail::TreeView::RenderRow(
             canvas.DrawRoundRect(bounds, radius, rowBg, borderCol, borderW);
         } else {
             canvas.DrawRect(bounds, rowBg);
+            if (borderW > 0.0f && borderCol.a > 0u) {
+                canvas.DrawRoundRect(bounds, 0.0f, Color::Transparent(), borderCol, borderW);
+            }
         }
     }
 
@@ -1635,8 +1653,8 @@ void detail::TreeView::RenderRow(
         canvas.DrawLine({bounds.x, lineY}, {bounds.Right(), lineY}, pal.borderSubtle.WithAlpha(85), 1.0f);
     }
 
-    // Left vertical accent indicator bar when selected in Indicator mode
-    if (selected && selStyle == TreeSelectionStyle::Indicator) {
+    // Left vertical accent indicator bar when selected in Indicator mode (modern translucent selection only)
+    if (selected && selStyle == TreeSelectionStyle::Indicator && !solidSel) {
         const keel::f32 barW = 3.0f;
         const keel::f32 barPadY = keel::max(4.0f, bounds.h * 0.18f);
         const Rect barRect(bounds.x + 1.0f, bounds.y + barPadY, barW, keel::max(4.0f, bounds.h - barPadY * 2.0f));
@@ -1645,30 +1663,40 @@ void detail::TreeView::RenderRow(
 
     // Focus ring
     if (rowNode->focused && !disabled) {
-        canvas.DrawRoundRect(bounds.Inset(1.0f), radius, Color::Transparent(), pal.focusRing.WithAlphaF(0.75f), 1.0f);
+        const Color ringCol = onSolidSel ? pal.accentText.WithAlphaF(0.75f) : pal.focusRing.WithAlphaF(0.75f);
+        canvas.DrawRoundRect(bounds.Inset(1.0f), radius, Color::Transparent(), ringCol, 1.0f);
     }
 
     keel::f32 curX = bounds.x + rm.padX + rm.indentWidth;
 
-    // 2. Chevron (for branch nodes)
+    // 2. Branch expander (`[+]`/`[-]` box in Classic3D, chevron arrows otherwise)
     if (isBranch) {
-        const Icon chevIcon = p->open ? Icon::ChevronDown() : Icon::ChevronRight();
         const keel::f32 chevX = curX + (rm.chevronSlotW - rm.chevronSize) * 0.5f;
         const keel::f32 chevY = bounds.y + (bounds.h - rm.chevronSize) * 0.5f;
         const bool chevHover = hovered && p->state && p->state->chevronRect.Contains(p->ctx ? p->ctx->GetMousePos() : Vec2{-1.0f, -1.0f});
-        Color chevCol = selected ? accentCol : (chevHover ? pal.textPrimary : pal.textSecondary);
+        Color chevCol = onSolidSel ? pal.accentText : (selected ? accentCol : (chevHover ? pal.textPrimary : pal.textSecondary));
         if (disabled) chevCol = chevCol.WithAlphaF(theme.disabledOpacity);
-        chevIcon.Draw(canvas, Rect(chevX, chevY, rm.chevronSize, rm.chevronSize), chevCol);
+        theme.Painter().DrawTreeExpander(
+            canvas,
+            theme,
+            Rect(chevX, chevY, rm.chevronSize, rm.chevronSize),
+            p->open,
+            chevHover,
+            selected,
+            disabled,
+            chevCol
+        );
     }
     curX += rm.chevronSlotW + rm.gap;
 
-    // 3. Optional Checkbox (supports checked + indeterminate tri-state)
+    // 3. Optional Checkbox (delegated to active IStylePainter::DrawCheckboxBox)
     if (p->opts.checked != nullptr) {
         const keel::f32 chkY = bounds.y + (bounds.h - rm.checkboxSize) * 0.5f;
         const Rect chkRect(curX, chkY, rm.checkboxSize, rm.checkboxSize);
-        const keel::f32 chkRadius = keel::max(3.0f, rm.checkboxSize * 0.22f);
+        const keel::f32 chkRadius = (themeRadius <= 0.01f) ? 0.0f : keel::max(3.0f, rm.checkboxSize * 0.22f);
         const bool isChecked = *p->opts.checked;
         const bool isIndet = p->opts.indeterminate;
+        const bool chkPressed = pressed && p->state && p->state->checkboxRect.Contains(p->ctx ? p->ctx->GetMousePos() : Vec2{-1.0f, -1.0f});
 
         Color boxBg = (isChecked || isIndet) ? accentCol : pal.surface;
         Color boxBorder = (isChecked || isIndet) ? accentCol : pal.border;
@@ -1676,15 +1704,26 @@ void detail::TreeView::RenderRow(
             boxBg = boxBg.WithAlphaF(theme.disabledOpacity);
             boxBorder = boxBorder.WithAlphaF(theme.disabledOpacity);
         }
-        canvas.DrawRoundRect(chkRect, chkRadius, boxBg, boxBorder, 1.25f);
-
-        const Color glyphCol = disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : Color(255, 255, 255, 255);
+        const Color defaultMarkCol = disabled ? pal.textPrimary.WithAlphaF(theme.disabledOpacity) : pal.accentText;
+        const Color glyphCol = theme.Painter().DrawCheckboxBox(
+            canvas,
+            theme,
+            chkRect,
+            chkRadius,
+            boxBg,
+            boxBorder,
+            1.25f,
+            defaultMarkCol,
+            chkPressed,
+            false,
+            disabled
+        );
         if (isIndet) {
             const keel::f32 dashW = rm.checkboxSize * 0.52f;
             const keel::f32 dashH = 2.0f;
             canvas.DrawRoundRect(
                 Rect(chkRect.Center().x - dashW * 0.5f, chkRect.Center().y - dashH * 0.5f, dashW, dashH),
-                dashH * 0.5f,
+                (chkRadius > 0.0f) ? (dashH * 0.5f) : 0.0f,
                 glyphCol
             );
         } else if (isChecked) {
@@ -1697,7 +1736,9 @@ void detail::TreeView::RenderRow(
     const Icon activeIcon = (p->open && p->opts.openIcon.IsValid()) ? p->opts.openIcon : p->opts.icon;
     if (activeIcon.IsValid()) {
         const keel::f32 iconY = bounds.y + (bounds.h - rm.iconSize) * 0.5f;
-        Color iconCol = selected ? accentCol : theme.ResolveTextColor(p->opts.label, UiVariant::Secondary, disabled, hovered, selected);
+        Color iconCol = onSolidSel
+            ? (disabled ? pal.accentText.WithAlphaF(theme.disabledOpacity) : pal.accentText)
+            : (selected ? accentCol : theme.ResolveTextColor(p->opts.label, UiVariant::Secondary, disabled, hovered, selected));
         if (!p->opts.label.color.HasAny() && !selected) {
             iconCol = hovered ? pal.textPrimary : pal.textSecondary;
             if (disabled) iconCol = iconCol.WithAlphaF(theme.disabledOpacity);
@@ -1721,9 +1762,9 @@ void detail::TreeView::RenderRow(
         const keel::f32 badgeX = rightLimit - badgeW;
         const keel::f32 badgeY = bounds.y + (bounds.h - badgeH) * 0.5f;
 
-        Color badgeBg = selected ? accentCol.WithAlphaF(0.24f) : pal.surfaceHover;
-        Color badgeTextCol = selected ? accentCol : pal.textSecondary;
-        if (p->opts.badge.color.HasAny()) {
+        Color badgeBg = onSolidSel ? pal.accentText.WithAlphaF(0.20f) : (selected ? accentCol.WithAlphaF(0.24f) : pal.surfaceHover);
+        Color badgeTextCol = onSolidSel ? pal.accentText : (selected ? accentCol : pal.textSecondary);
+        if (p->opts.badge.color.HasAny() && !onSolidSel) {
             const Color resolved = theme.ResolveColor(p->opts.badge.color, hovered, selected, disabled, accentCol);
             badgeBg = resolved.WithAlphaF(disabled ? 0.12f : 0.20f);
             badgeTextCol = disabled ? resolved.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolved, pal.surface);
@@ -1751,7 +1792,9 @@ void detail::TreeView::RenderRow(
         );
         if (detailW > 12.0f) {
             const keel::f32 detailX = rightLimit - detailW;
-            const Color detailCol = theme.ResolveTextColor(p->opts.detail, UiVariant::Muted, disabled, hovered, selected);
+            const Color detailCol = (onSolidSel && !p->opts.detail.color.HasAny())
+                ? (disabled ? pal.accentText.WithAlphaF(theme.disabledOpacity) : pal.accentText.WithAlphaF(0.84f))
+                : theme.ResolveTextColor(p->opts.detail, UiVariant::Muted, disabled, hovered, selected);
             const auto displayDetail = TextUtil::TruncateWithEllipsis(p->opts.detail.text, detailW, rm.detailFont, &canvas);
             canvas.DrawTextBox(displayDetail, Rect(detailX, bounds.y, detailW, bounds.h), rm.detailFont, detailCol, 1.0f, 0.5f);
             rightLimit = detailX - rm.gap;
@@ -1761,13 +1804,15 @@ void detail::TreeView::RenderRow(
     // 6. Primary Label + optional Description
     const keel::f32 availTextW = keel::max(0.0f, rightLimit - curX);
     if (availTextW > 2.0f) {
-        const Color labelCol = theme.ResolveTextColor(
-            p->opts.label,
-            selected ? UiVariant::Default : UiVariant::Default,
-            disabled,
-            hovered,
-            selected
-        );
+        const Color labelCol = (onSolidSel && !p->opts.label.color.HasAny())
+            ? (disabled ? pal.accentText.WithAlphaF(theme.disabledOpacity) : pal.accentText)
+            : theme.ResolveTextColor(
+                p->opts.label,
+                UiVariant::Default,
+                disabled,
+                hovered,
+                selected
+            );
         const bool hasDesc = !p->opts.description.empty();
         if (!hasDesc) {
             const auto displayLabel = TextUtil::TruncateWithEllipsis(p->opts.label.text, availTextW, rm.labelFont, &canvas);
@@ -1782,7 +1827,9 @@ void detail::TreeView::RenderRow(
             const auto displayLabel = TextUtil::TruncateWithEllipsis(p->opts.label.text, availTextW, rm.labelFont, &canvas);
             canvas.DrawTextBox(displayLabel, Rect(curX, startY, availTextW, labelLineH), rm.labelFont, labelCol, 0.0f, 0.5f);
 
-            const Color descCol = theme.ResolveTextColor(p->opts.description, UiVariant::Muted, disabled, hovered, selected);
+            const Color descCol = (onSolidSel && !p->opts.description.color.HasAny())
+                ? (disabled ? pal.accentText.WithAlphaF(theme.disabledOpacity) : pal.accentText.WithAlphaF(0.84f))
+                : theme.ResolveTextColor(p->opts.description, UiVariant::Muted, disabled, hovered, selected);
             const auto displayDesc = TextUtil::TruncateWithEllipsis(p->opts.description.text, availTextW, rm.descFont, &canvas);
             canvas.DrawTextBox(displayDesc, Rect(curX, startY + labelLineH + lineGap, availTextW, descLineH), rm.descFont, descCol, 0.0f, 0.5f);
         }
@@ -1818,14 +1865,30 @@ void detail::TreeView::RenderHeader(
     }
 
     canvas.PushClip(headerRect);
-    canvas.DrawRect(headerRect, pal.surfaceElevated);
+    const ChromeMetrics chromeM = theme.Painter().GetChromeMetrics(theme);
+    canvas.DrawRect(headerRect, chromeM.recessedRegions ? pal.surface : pal.surfaceElevated);
 
+    keel::f32 rightmostDrawn = headerRect.x;
     for (keel::u16 i = 0; i < tree->columnCount; ++i) {
         const auto& col = tree->columns[i];
         const keel::f32 colX = colOriginX + tree->resolvedColX[i];
         const keel::f32 colW = tree->resolvedColW[i];
         const Rect colHdrRect(colX, headerRect.y, colW, headerRect.h);
+        rightmostDrawn = keel::max(rightmostDrawn, colHdrRect.Right());
         if (!colHdrRect.Intersects(headerRect)) continue;
+
+        const bool dividerActive = (tree->state && tree->state->resizingCol == keel::as<keel::i32>(i)) ||
+                                   (tree->hoveredDividerCol == keel::as<keel::i32>(i));
+        theme.Painter().DrawTableHeaderCell(canvas, theme, TableHeaderCellPaintParams{
+            .rect = colHdrRect,
+            .hovered = false,
+            .pressed = false,
+            .sorted = false,
+            .sortable = false,
+            .dividerActive = dividerActive,
+            .showRightDivider = (i + 1 < tree->columnCount),
+            .isFrozenSeam = false
+        });
 
         Rect titleRect(
             colX + cellPadX,
@@ -1833,7 +1896,8 @@ void detail::TreeView::RenderHeader(
             keel::max(0.0f, colW - cellPadX * 2.0f),
             headerRect.h
         );
-        const Color titleCol = headerNode->disabled ? pal.textSecondary.WithAlphaF(theme.disabledOpacity) : pal.textSecondary;
+        const Color baseTitleCol = chromeM.recessedRegions ? pal.textPrimary : pal.textSecondary;
+        const Color titleCol = headerNode->disabled ? baseTitleCol.WithAlphaF(theme.disabledOpacity) : baseTitleCol;
 
         if (col.icon.IsValid()) {
             const keel::f32 iconSz = keel::min(13.0f * scale, headerRect.h * 0.55f);
@@ -1860,30 +1924,30 @@ void detail::TreeView::RenderHeader(
                 0.5f
             );
         }
-
-        if (i + 1 < tree->columnCount) {
-            const keel::f32 divX = keel::min(keel::floor(colX + colW) + 0.5f, headerRect.Right() - 1.5f);
-            const bool dividerActive = (tree->state && tree->state->resizingCol == keel::as<keel::i32>(i)) ||
-                                       (tree->hoveredDividerCol == keel::as<keel::i32>(i));
-            const Color divCol = dividerActive ? pal.accent : pal.borderSubtle;
-            const keel::f32 divThick = dividerActive ? (2.0f * scale) : 1.0f;
-            const keel::f32 padY = dividerActive ? (3.0f * scale) : (5.0f * scale);
-            canvas.DrawLine(
-                Vec2(divX, headerRect.y + padY),
-                Vec2(divX, headerRect.Bottom() - padY),
-                divCol,
-                divThick
-            );
-        }
     }
 
-    const keel::f32 botY = keel::floor(headerRect.Bottom()) - 0.5f;
-    canvas.DrawLine(
-        Vec2(headerRect.x, botY),
-        Vec2(headerRect.Right(), botY),
-        pal.borderSubtle,
-        1.0f
-    );
+    // Fill any trailing header strip above the vertical scrollbar gutter with a matching header cap cell
+    if (rightmostDrawn < headerRect.Right() - 0.5f) {
+        theme.Painter().DrawTableHeaderCell(canvas, theme, TableHeaderCellPaintParams{
+            .rect = Rect(rightmostDrawn, headerRect.y, headerRect.Right() - rightmostDrawn, headerRect.h),
+            .hovered = false,
+            .pressed = false,
+            .sorted = false,
+            .sortable = false,
+            .dividerActive = false,
+            .showRightDivider = false,
+            .isFrozenSeam = false
+        });
+    }
+    if (!chromeM.recessedRegions) {
+        const keel::f32 hdrBotY = keel::floor(headerRect.Bottom()) - 0.5f;
+        canvas.DrawLine(
+            Vec2(headerRect.x, hdrBotY),
+            Vec2(headerRect.Right(), hdrBotY),
+            pal.border,
+            1.0f
+        );
+    }
     canvas.PopClip();
 }
 

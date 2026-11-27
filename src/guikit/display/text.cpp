@@ -4,6 +4,7 @@
 #include "guikit/core/node.hpp"
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/style/style_painter.hpp"
 
 namespace guikit {
 
@@ -50,11 +51,27 @@ Response detail::Text::Run(
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<TextPayload>();
+        UiText lbl = d ? d->label : UiText(n->text);
+        const TextOptions effOpts = d ? d->opts : TextOptions{};
+        if (!lbl.color.HasAny() &&
+            (effOpts.variant == UiVariant::Default || effOpts.variant == UiVariant::Secondary || effOpts.variant == UiVariant::Muted) &&
+            theme.Painter().GetChromeMetrics(theme).solidSelectionHighlight) {
+            const Node* p = n->parent;
+            const Node* treeItem = (p && p->type == NodeType::TreeItem)
+                ? p
+                : ((p && p->type == NodeType::Cell && p->parent && p->parent->type == NodeType::TreeItem) ? p->parent : nullptr);
+            if (treeItem && treeItem->active) {
+                const Color ink = (effOpts.variant == UiVariant::Default)
+                    ? theme.palette.accentText
+                    : theme.palette.accentText.WithAlphaF(0.86f);
+                lbl.color = StateColor{ink};
+            }
+        }
         detail::Text::Render(
             canvas,
             n->computedRect,
-            d ? d->label : UiText(n->text),
-            d ? d->opts : TextOptions{},
+            lbl,
+            effOpts,
             n->hovered,
             n->disabled,
             theme

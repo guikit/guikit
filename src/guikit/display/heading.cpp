@@ -269,14 +269,33 @@ Response detail::Heading::Run(
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* o = n->As<HeadingOptions>();
+        HeadingOptions effOpts = o ? *o : HeadingOptions{};
+        const Node* p = n->parent;
+        const bool onActiveTreeRow =
+            (p && p->type == NodeType::TreeItem && p->active) ||
+            (p && p->parent && p->parent->type == NodeType::TreeItem && p->parent->active);
+        const bool onSolidSel = onActiveTreeRow && theme.Painter().GetChromeMetrics(theme).solidSelectionHighlight;
+        if (onSolidSel) {
+            const auto& pal = theme.palette;
+            if (!effOpts.label.color.HasAny()) {
+                effOpts.label.color = StateColor{pal.accentText};
+            }
+            if (!effOpts.description.color.HasAny()) {
+                effOpts.description.color = StateColor{pal.accentText.WithAlphaF(0.86f)};
+            }
+            // Mark active=true so badge switches to solid-accent contrast when onSolidSel
+            if (!effOpts.badge.empty()) {
+                effOpts.badge.color = StateColor{pal.accentText};
+            }
+        }
         detail::Heading::Render(
             canvas,
             n->computedRect,
-            o ? *o : HeadingOptions{},
+            effOpts,
             theme,
             n->disabled,
             n->hovered,
-            n->pressed || n->focused
+            n->pressed || n->focused || onSolidSel
         );
     };
 
@@ -437,7 +456,10 @@ void detail::Heading::Render(
             if (opts.badge.color.HasAny()) {
                 const Color resolvedBadge = theme.ResolveColor(opts.badge.color, hovered, active, effDisabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(effDisabled ? 0.12f : 0.22f);
-                badgeTextCol = effDisabled ? resolvedBadge.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolvedBadge, pal.surface);
+                const Color refBg = (active && theme.Painter().GetChromeMetrics(theme).solidSelectionHighlight)
+                    ? pal.accent
+                    : pal.surface;
+                badgeTextCol = effDisabled ? resolvedBadge.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolvedBadge, refBg);
                 badgeBorderCol = resolvedBadge.WithAlphaF(effDisabled ? 0.25f : 0.50f);
                 badgeBorderW = 1.0f;
             } else if (effDisabled) {
