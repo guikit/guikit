@@ -644,8 +644,8 @@ TreeViewScope detail::TreeView::Open(
             pal.borderSubtle.WithAlphaF(theme.disabledOpacity)
         );
     }
-    const bool recessedWell = chromeM.recessedRegions && (opts.border.width > 0.0f);
-    const Color defaultBg = recessedWell ? pal.inputBackground : pal.surface;
+    const bool isSunken = (opts.border.width > 0.0f);
+    const Color defaultBg = isSunken ? pal.inputBackground : pal.surface;
     if (opts.background.IsNone()) {
         outerNode->backgroundColor = Color::Transparent();
     } else if (!opts.background.HasAny() || opts.background.IsSurface()) {
@@ -661,7 +661,7 @@ TreeViewScope detail::TreeView::Open(
             defaultBg,
             pal.surfaceHover,
             pal.surfaceActive,
-            pal.surface.WithAlphaF(theme.disabledOpacity)
+            defaultBg.WithAlphaF(theme.disabledOpacity)
         );
     }
 
@@ -779,13 +779,13 @@ TreeViewScope detail::TreeView::Open(
             .padding = Padding(barPad, barPad, barPad, barPad),
             .align = Alignment::Center
         })) {
-            if (recessedWell && bar.GetNode()) {
-                bar.GetNode()->backgroundColor = pal.surface;
+            if (isSunken && bar.GetNode()) {
+                bar.GetNode()->backgroundColor = (theme.mode == ThemeMode::Light) ? pal.surface : pal.surfaceElevated;
             }
             if (!opts.title.empty()) {
                 guikit::Text(ctx, opts.title, {
                     .role = TextRole::LabelSmall,
-                    .variant = recessedWell ? UiVariant::Default : UiVariant::Secondary
+                    .variant = chromeM.recessedRegions ? UiVariant::Default : UiVariant::Secondary
                 });
                 if (!opts.searchable) {
                     guikit::Spacer(ctx);
@@ -841,7 +841,7 @@ TreeViewScope detail::TreeView::Open(
         if (auto sep = guikit::Box(ctx, {
             .width = SizeMode::Stretch,
             .height = 1.0f,
-            .background = {recessedWell ? pal.border : pal.borderSubtle}
+            .background = {chromeM.recessedRegions ? pal.border : pal.borderSubtle}
         })) {}
     }
 
@@ -1768,8 +1768,11 @@ void detail::TreeView::RenderRow(
         Color badgeTextCol = onSolidSel ? pal.accentText : (selected ? accentCol : pal.textSecondary);
         if (p->opts.badge.color.HasAny() && !onSolidSel) {
             const Color resolved = theme.ResolveColor(p->opts.badge.color, hovered, selected, disabled, accentCol);
+            const Color treeBg = (p->tree && p->tree->outerNode && p->tree->outerNode->backgroundColor.a > 0u)
+                ? p->tree->outerNode->backgroundColor
+                : pal.inputBackground;
             badgeBg = resolved.WithAlphaF(disabled ? 0.12f : 0.20f);
-            badgeTextCol = disabled ? resolved.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolved, pal.surface);
+            badgeTextCol = disabled ? resolved.WithAlphaF(theme.disabledOpacity) : theme.EnsureReadableInk(resolved, treeBg);
         } else if (disabled) {
             badgeBg = badgeBg.WithAlphaF(theme.disabledOpacity);
             badgeTextCol = badgeTextCol.WithAlphaF(theme.disabledOpacity);
@@ -1868,7 +1871,8 @@ void detail::TreeView::RenderHeader(
 
     canvas.PushClip(headerRect);
     const ChromeMetrics chromeM = theme.Painter().GetChromeMetrics(theme);
-    canvas.DrawRect(headerRect, chromeM.recessedRegions ? pal.surface : pal.surfaceElevated);
+    const Color headerBg = (theme.mode == ThemeMode::Light) ? pal.surface : pal.surfaceElevated;
+    canvas.DrawRect(headerRect, headerBg);
 
     keel::f32 rightmostDrawn = headerRect.x;
     for (keel::u16 i = 0; i < tree->columnCount; ++i) {

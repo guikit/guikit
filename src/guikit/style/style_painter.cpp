@@ -2485,9 +2485,10 @@ void DefaultStylePainter::DrawTableHeaderCell(
 
     const bool isBold =
         (theme.chrome.frame == FrameTreatment::HardShadow || theme.chrome.divider == DividerStyle::Bold);
+    const Color headerSurface = (theme.mode == ThemeMode::Light) ? pal.surface : pal.surfaceElevated;
     const Color fillCol = p.hovered
         ? pal.surfaceHover
-        : (p.sorted ? pal.accent.WithAlpha(isBold ? 28 : 20) : pal.surfaceElevated);
+        : (p.sorted ? pal.accent.WithAlpha(isBold ? 28 : 20) : headerSurface);
     canvas.DrawRect(sr, fillCol);
 
     if (p.showRightDivider) {

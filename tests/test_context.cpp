@@ -10314,6 +10314,46 @@ void TestTreeViewAndTreeItemWorkflow() {
 
         CHECK(win98RootRes.rect.w > 200.0f);
         CHECK(win98ChildRes.rect.y > win98RootRes.rect.y);
+
+        // Verify orthogonal Sunken fill contract across ALL ThemePresets x ChromeStyles:
+        // bordered TreeView always uses palette.inputBackground (independent of ChromeStyle),
+        // while borderless TreeView uses palette.surface so sidebar-embedded trees blend cleanly.
+        for (keel::usize pi = 0u; pi < kThemePresetCount; ++pi) {
+            const auto preset = keel::from_underlying<ThemePreset>(pi);
+            for (keel::usize ci = 0u; ci < kChromeStyleCount; ++ci) {
+                const auto chrome = keel::from_underlying<ChromeStyle>(ci);
+                UiTheme th = UiTheme::FromPreset(preset);
+                th.SetChromeStyle(chrome);
+                ui.SetTheme(th);
+                ui.BeginFrame({keel::as<keel::f32>(width), keel::as<keel::f32>(height)});
+                Color sunkenBg = Color::Transparent();
+                SurfaceRole sunkenRole = SurfaceRole::None;
+                Color borderlessBg = Color::Transparent();
+                SurfaceRole borderlessRole = SurfaceRole::Sunken;
+                if (auto tree = guikit::TreeView(ui, {.width = 240.0f, .height = 120.0f})) {
+                    const Node* outer = (tree.GetNode() && tree.GetNode()->parent) ? tree.GetNode()->parent : nullptr;
+                    if (outer) {
+                        sunkenBg = outer->backgroundColor;
+                        sunkenRole = outer->GetSurfaceRole();
+                    }
+                    (void)guikit::TreeItem(ui, "Item");
+                }
+                if (auto tree = guikit::TreeView(ui, {.width = 240.0f, .height = 120.0f, .border = {.width = 0.0f}})) {
+                    const Node* outer = (tree.GetNode() && tree.GetNode()->parent) ? tree.GetNode()->parent : nullptr;
+                    if (outer) {
+                        borderlessBg = outer->backgroundColor;
+                        borderlessRole = outer->GetSurfaceRole();
+                    }
+                    (void)guikit::TreeItem(ui, "Item");
+                }
+                ui.EndFrame(canvas);
+                CHECK(sunkenRole == SurfaceRole::Sunken);
+                CHECK(sunkenBg == th.palette.inputBackground);
+                CHECK(borderlessRole == SurfaceRole::None);
+                CHECK(borderlessBg == th.palette.surface);
+            }
+        }
+
         ui.SetTheme(UiTheme::Dark());
     }
 

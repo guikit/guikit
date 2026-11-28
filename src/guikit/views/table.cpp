@@ -1883,11 +1883,13 @@ void detail::Table::RenderBody(
 
     // 1. Draw outer table surface background via active IStylePainter
     if (data->opts.background.IsBackgroundEnabled(true)) {
-        const Color bgCol = theme.ResolveColor(data->opts.background, false, false, node->disabled, pal.surface);
+        const bool isSunken = (data->opts.border.width > 0.0f);
+        const Color defaultBg = isSunken ? pal.inputBackground : pal.surface;
+        const Color bgCol = theme.ResolveColor(data->opts.background, false, false, node->disabled, defaultBg);
         if (bgCol.a > 0) {
             theme.Painter().DrawSurfaceBg(canvas, theme, SurfacePaintParams{
                 .rect = data->frameRect,
-                .role = SurfaceRole::Sunken,
+                .role = isSunken ? SurfaceRole::Sunken : SurfaceRole::None,
                 .radius = radius,
                 .explicitRadius = data->opts.border.radius.has_value(),
                 .bg = bgCol
@@ -1959,7 +1961,7 @@ void detail::Table::RenderBody(
                 const Color tintCol = theme.GetSemanticAccent(*rowRec.opts.tint).WithAlpha(28);
                 canvas.DrawRect(rowRect, tintCol);
             } else if (data->opts.striped && (rIdx % 2 == 1)) {
-                canvas.DrawRect(rowRect, pal.surfaceElevated.WithAlpha(90));
+                canvas.DrawRect(rowRect, pal.surfaceHover.WithAlphaF(theme.mode == ThemeMode::Dark ? 0.28f : 0.35f));
             }
 
             // Optional automatic '#' row number cell (pinned when frozenColumns > 0)
@@ -2116,9 +2118,10 @@ void detail::Table::RenderChromeAndScrollbars(
         ? keel::clamp(data->frozenAreaW, 0.0f, keel::max(0.0f, data->headerRect.w))
         : 0.0f;
 
+    const Color barBg = (theme.mode == ThemeMode::Light) ? pal.surface : pal.surfaceElevated;
     if (data->opts.stickyHeader && data->headerRect.w > 0.0f && data->headerRect.h > 0.0f) {
         canvas.PushClip(data->headerRect);
-        canvas.DrawRect(data->headerRect, pal.surfaceElevated);
+        canvas.DrawRect(data->headerRect, barBg);
 
         const keel::f32 headerFontSize = ResolveTableFontSize(UiText{}, TextRole::LabelSmall, theme);
 
@@ -2339,7 +2342,7 @@ void detail::Table::RenderChromeAndScrollbars(
     if (data->footerRect.w > 0.0f && data->footerRect.h > 0.0f) {
         const PixelGrid pgFtr = PixelGrid::From(canvas);
         canvas.PushClip(data->footerRect);
-        canvas.DrawRect(data->footerRect, pal.surfaceElevated);
+        canvas.DrawRect(data->footerRect, barBg);
         const keel::f32 topY = data->footerRect.y + pgFtr.UnitStepDp() * 0.5f;
         pgFtr.DrawAlignedLine(
             canvas,
