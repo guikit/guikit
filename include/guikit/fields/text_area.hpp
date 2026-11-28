@@ -3,6 +3,7 @@
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
+#include "guikit/core/text_document.hpp"
 #include "guikit/style/theme.hpp"
 #include "guikit/style/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -10,6 +11,7 @@
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
+#include "keel/static_array.h"
 #include "keel/string.h"
 
 namespace guikit {
@@ -44,6 +46,7 @@ struct SyntaxConfig {
     keel::ArrayRef<keel::StringRef> foldOpenKeywords{};         ///< Block opening keywords (e.g. function, if, for in MATLAB)
     keel::ArrayRef<keel::StringRef> foldCloseKeywords{};        ///< Block closing keywords (e.g. end in MATLAB)
     keel::StringRef lineComment{"//"};                          ///< Single-line comment prefix (empty to disable)
+    keel::StringRef lineCommentKeyword{};                       ///< Optional word-delimited line comment keyword (e.g. "rem" in Batch)
     keel::StringRef sectionPrefix{};                            ///< Section header prefix (e.g. "%%" in MATLAB)
     keel::StringRef blockCommentStart{"/*"};                    ///< Block comment opening delimiter (e.g. "/*" or "%{")
     keel::StringRef blockCommentEnd{"*/"};                      ///< Block comment closing delimiter (e.g. "*/" or "%}")
@@ -52,8 +55,15 @@ struct SyntaxConfig {
     bool highlightNumbers{true};                                ///< Highlight numeric literals (42, 3.14f, 0xFF, 1e-6i)
     bool highlightFunctions{true};                              ///< Highlight identifiers followed by '('
     bool highlightPunctuation{true};                            ///< Highlight operators and punctuation
-    bool transposeApostrophe{false};                            ///< Disambiguate MATLAB transpose A' from 'string' literal
+    bool transposeApostrophe{false};                            ///< Disambiguate MATLAB transpose A' / VHDL clk'event from 'string' literal
     bool highlightJsonKeys{false};                              ///< Distinguish JSON object keys ("key":) from string values
+    bool caseInsensitiveKeywords{false};                        ///< Case-insensitive keyword/type/builtin/fold matching (SQL, VHDL, CMake)
+    bool backtickStrings{false};                                ///< Highlight `...` template / raw string literals (JS/TS, Go, Shell)
+    bool singleQuoteStrings{true};                              ///< Highlight '...' literals (false for JSON, Verilog, Swift, CMake)
+    bool rustLifetimes{false};                                  ///< Disambiguate Rust lifetimes ('a, 'static) from char literals ('x')
+    bool allowHyphenInIdentifiers{false};                       ///< Allow '-' inside identifiers (CSS properties, XML attrs, YAML keys)
+    bool highlightUnquotedKeys{false};                          ///< Highlight unquoted identifier before ': ' as key/property (YAML, CSS)
+    bool highlightMarkupTags{false};                            ///< Highlight XML/HTML/SVG tags, attributes, CDATA, and entities (&amp;)
     keel::Optional<SyntaxPalette> palette{keel::kNullOpt};      ///< Optional custom color palette override
 
     /// Built-in C / C++20 syntax preset.
@@ -62,14 +72,77 @@ struct SyntaxConfig {
     /// Built-in MATLAB / Octave DSP & scientific computing syntax preset.
     [[nodiscard]] static SyntaxConfig Matlab() noexcept;
 
-    /// Built-in JSON / configuration syntax preset.
+    /// Built-in JSON / JSONC configuration syntax preset.
     [[nodiscard]] static SyntaxConfig Json() noexcept;
 
     /// Built-in Python 3 syntax preset.
     [[nodiscard]] static SyntaxConfig Python() noexcept;
 
-    /// Resolves a Markdown / language identifier tag (e.g. "cpp", "matlab", "json", "py") to a SyntaxConfig preset.
+    /// Built-in Rust syntax preset (with lifetime disambiguation).
+    [[nodiscard]] static SyntaxConfig Rust() noexcept;
+
+    /// Built-in TypeScript / TSX syntax preset.
+    [[nodiscard]] static SyntaxConfig TypeScript() noexcept;
+
+    /// Built-in JavaScript / JSX syntax preset.
+    [[nodiscard]] static SyntaxConfig JavaScript() noexcept;
+
+    /// Built-in GLSL / WGSL shader syntax preset.
+    [[nodiscard]] static SyntaxConfig Glsl() noexcept;
+
+    /// Built-in Go syntax preset.
+    [[nodiscard]] static SyntaxConfig Go() noexcept;
+
+    /// Built-in C# syntax preset.
+    [[nodiscard]] static SyntaxConfig CSharp() noexcept;
+
+    /// Built-in Java syntax preset.
+    [[nodiscard]] static SyntaxConfig Java() noexcept;
+
+    /// Built-in Kotlin syntax preset.
+    [[nodiscard]] static SyntaxConfig Kotlin() noexcept;
+
+    /// Built-in Swift syntax preset.
+    [[nodiscard]] static SyntaxConfig Swift() noexcept;
+
+    /// Built-in Verilog / SystemVerilog HDL syntax preset.
+    [[nodiscard]] static SyntaxConfig Verilog() noexcept;
+
+    /// Built-in VHDL HDL syntax preset (case-insensitive, attribute apostrophe aware).
+    [[nodiscard]] static SyntaxConfig Vhdl() noexcept;
+
+    /// Built-in Lua syntax preset.
+    [[nodiscard]] static SyntaxConfig Lua() noexcept;
+
+    /// Built-in CMake script syntax preset (case-insensitive).
+    [[nodiscard]] static SyntaxConfig Cmake() noexcept;
+
+    /// Built-in Bash / POSIX Shell syntax preset.
+    [[nodiscard]] static SyntaxConfig Shell() noexcept;
+
+    /// Built-in PowerShell (.ps1 / .psm1 / .psd1) syntax preset (case-insensitive, <# ... #> block comments).
+    [[nodiscard]] static SyntaxConfig PowerShell() noexcept;
+
+    /// Built-in Windows Batch / CMD (.bat / .cmd) syntax preset (case-insensitive, :: and REM comments).
+    [[nodiscard]] static SyntaxConfig Batch() noexcept;
+
+    /// Built-in SQL syntax preset (case-insensitive).
+    [[nodiscard]] static SyntaxConfig Sql() noexcept;
+
+    /// Built-in YAML / TOML / INI configuration syntax preset.
+    [[nodiscard]] static SyntaxConfig Yaml() noexcept;
+
+    /// Built-in CSS / SCSS stylesheet syntax preset.
+    [[nodiscard]] static SyntaxConfig Css() noexcept;
+
+    /// Built-in XML / HTML / SVG / BPMN markup syntax preset.
+    [[nodiscard]] static SyntaxConfig Xml() noexcept;
+
+    /// Resolves a Markdown / language identifier tag (e.g. "cpp", "rs", "sv", "vhdl", "kt", "swift", "css", "xml") to a SyntaxConfig preset.
     [[nodiscard]] static SyntaxConfig ForLanguage(keel::StringRef langTag) noexcept;
+
+    /// Resolves a filename or path (e.g. "alu.sv", "CMakeLists.txt", "styles.css", "process.bpmn") to a SyntaxConfig preset (Plain() if unknown).
+    [[nodiscard]] static SyntaxConfig ForFilename(keel::StringRef filenameOrPath) noexcept;
 
     /// Plain text (no syntax highlighting).
     [[nodiscard]] static constexpr SyntaxConfig Plain() noexcept { return SyntaxConfig{.enabled = false}; }
@@ -208,19 +281,33 @@ struct TextAreaFoldRegion {
     keel::usize endLine{0};   ///< 0-based inclusive end line index
 };
 
+struct TextAreaSearchMatch {
+    keel::usize startOffset{0};
+    keel::usize endOffset{0};
+    keel::usize logicalLine{0};
+    keel::usize startCol{0};
+    keel::usize endCol{0};
+};
+
 /// Persistent interactive state for TextArea.
 struct TextAreaState {
-    keel::f32 scrollX{0.0f};
-    keel::f32 scrollY{0.0f};
+    static constexpr keel::usize kSearchRulerBuckets = 512u;
+
+    keel::f64 scrollX{0.0};
+    keel::f64 scrollY{0.0};
     keel::f32 zoom{1.0f};
     keel::f32 lastOptsZoom{1.0f};
     keel::f32 prevAppliedZoom{1.0f};
     keel::usize cursor{0};
+    keel::usize anchor{0};
     keel::usize selectionStart{0};
     keel::usize selectionEnd{0};
+    keel::Optional<keel::usize> preferredColumn{keel::kNullOpt};
     keel::usize prevCursor{0};
     keel::usize prevTextSize{0};
     keel::usize prevLineCount{0};
+    keel::u64 lastDocRevision{0};
+    const TextDocument* lastDocPtr{nullptr};
     bool draggingText{false};
     bool draggingWord{false};
     keel::usize wordDragStart{0};
@@ -250,13 +337,14 @@ struct TextAreaState {
     bool wholeWord{false};
     keel::usize activeMatchIdx{0};
     keel::usize searchMatchCount{0};
+    bool searchMatchesCapped{false};
 
     // Code folding & debugger state
     keel::Array<keel::usize> foldedLines{};         ///< 0-based start line indices of folded blocks
     keel::Array<keel::usize> internalBreakpoints{}; ///< 1-based breakpoint lines when opts.breakpoints == nullptr
     keel::usize prevExecutionLine{0};
 
-    // Line-shift & statement-anchor tracking state
+    // Line-shift & statement-anchor tracking state (legacy StringRef mode with markers)
     bool baselineInitialized{false};
     keel::String prevDocumentText{};
     keel::Array<keel::usize> baselineToCurrentLine{};
@@ -264,14 +352,43 @@ struct TextAreaState {
     keel::Array<CodeInlineValue> resolvedInlineValues{};
     keel::Array<CodeDiagnostic> resolvedDiagnostics{};
 
-    // Cached line / fold / visual layout buffers (avoids per-frame heap allocations & static re-parsing)
+    // Cached line / fold / visual layout / width / search / wrap buffers
     keel::u64 cachedDocHash{0};
     keel::usize cachedDocSize{keel::as<keel::usize>(-1)};
+    keel::usize cachedMaxLineBytes{0};
+    bool cachedPureAsciiNoTabs{true};
     bool cachedFoldEnabled{false};
     keel::u64 cachedFoldSyntaxHash{0};
     keel::Array<TextAreaLogicalLine> cachedLogicalLines{};
     keel::Array<TextAreaFoldRegion> cachedFoldRegions{};
     keel::Array<TextAreaVisualLine> scratchVisualLines{};
+    keel::u64 cachedExactWrapKey{0};
+
+    // Cached max horizontal width (avoids per-frame O(N) MeasureSegmentWidth scans)
+    keel::u64 cachedMaxLineWKey{0};
+    keel::f64 cachedMaxLineW{0.0};
+
+    // Cached streaming search results & bucketed overview ruler
+    keel::u64 cachedSearchKey{0};
+    keel::Array<TextAreaSearchMatch> cachedSearchMatches{};
+    keel::StaticArray<keel::u8, kSearchRulerBuckets> cachedSearchRulerBuckets{};
+
+    // Cached analytic word-wrap prefix sums (for 1M+ lines & 10MB single lines)
+    keel::u64 cachedAnalyticWrapKey{0};
+    keel::usize cachedAnalyticWrapCols{0};
+    keel::usize cachedAnalyticTotalRows{0};
+    keel::Array<keel::usize> cachedWrapSmallLinePrefix{};
+    keel::Array<keel::usize> cachedWrapChunkPrefix{};
+
+    // Checkpointed multiline block-comment lexer state (1 byte per 256 lines = ~4 KB for 1M lines)
+    keel::u64 cachedLexerConfigKey{0};
+    keel::u64 cachedLexerDocKey{0};
+    keel::Array<keel::u8> lexerCheckpoints{};
+    keel::usize lexerValidCheckpoints{0};
+
+    // Windowed code-folding cache for huge (>50k lines) files
+    keel::usize cachedFoldWindowBucket{keel::as<keel::usize>(-1)};
+    keel::Array<TextAreaFoldRegion> preservedFoldedRegions{};
 
     void TrimInactiveCaches() noexcept {
         baselineInitialized = false;
@@ -282,24 +399,44 @@ struct TextAreaState {
         resolvedDiagnostics = {};
         cachedDocHash = 0;
         cachedDocSize = keel::as<keel::usize>(-1);
+        cachedMaxLineBytes = 0;
+        cachedPureAsciiNoTabs = true;
         cachedFoldSyntaxHash = 0;
         cachedLogicalLines = {};
         cachedFoldRegions = {};
         scratchVisualLines = {};
+        cachedExactWrapKey = 0;
+        cachedMaxLineWKey = 0;
+        cachedMaxLineW = 0.0;
+        cachedSearchKey = 0;
+        cachedSearchMatches = {};
+        cachedSearchRulerBuckets = {};
+        cachedAnalyticWrapKey = 0;
+        cachedAnalyticWrapCols = 0;
+        cachedAnalyticTotalRows = 0;
+        cachedWrapSmallLinePrefix = {};
+        cachedWrapChunkPrefix = {};
+        cachedLexerConfigKey = 0;
+        cachedLexerDocKey = 0;
+        lexerCheckpoints = {};
+        lexerValidCheckpoints = 0;
+        cachedFoldWindowBucket = keel::as<keel::usize>(-1);
+        preservedFoldedRegions = {};
     }
 };
 
 /// Internal runtime state allocated in frame arena for TextArea nodes.
 struct TextAreaData {
     TextAreaOptions opts{};
+    const TextDocument* document{nullptr}; ///< Non-owning pointer when backed by TextDocument (zero-copy!)
     keel::StringRef text{};
     keel::usize cursor{0};
     keel::usize selectionStart{0};
     keel::usize selectionEnd{0};
     bool cursorVisible{true};
     keel::f32 cursorWidth{1.8f};
-    keel::f32 scrollX{0.0f};
-    keel::f32 scrollY{0.0f};
+    keel::f64 scrollX{0.0};
+    keel::f64 scrollY{0.0};
     keel::f32 zoom{1.0f};
     bool copyHovered{false};
     bool copyFeedbackActive{false};
@@ -326,19 +463,34 @@ struct TextAreaData {
     bool wholeWord{false};
     keel::usize activeMatchIdx{0};
     keel::usize searchMatchCount{0};
+    bool searchMatchesCapped{false};
     keel::i32 hoveredOverlayBtn{-1};
 
-    // Folding & Debugger snapshot
+    // Precomputed layout / folding / search / debugger snapshots (avoids O(N) recomputation in Render)
     keel::ArrayRef<keel::usize> foldedLines{};
     keel::ArrayRef<keel::usize> breakpoints{};
     keel::ArrayRef<TextAreaLogicalLine> precomputedLogicalLines{};
     keel::ArrayRef<TextAreaFoldRegion> precomputedFoldRegions{};
+    keel::ArrayRef<TextAreaVisualLine> precomputedVisualLines{};
+    keel::ArrayRef<TextAreaSearchMatch> precomputedSearchMatches{};
+    keel::ArrayRef<keel::u8> searchRulerBuckets{};
+    keel::ArrayRef<keel::usize> precomputedWrapSmallLinePrefix{};
+    keel::ArrayRef<keel::usize> precomputedWrapChunkPrefix{};
+    keel::usize precomputedWrapCols{0};
+    keel::usize precomputedTotalVisualRows{0};
+    keel::usize cachedMaxLineBytes{0};
+    bool cachedPureAsciiNoTabs{true};
+    keel::f64 precomputedMaxLineW{0.0};
+    bool hasPrecomputedMaxLineW{false};
+    bool initialInBlockComment{false};
+    bool hasInitialBlockComment{false};
+    keel::usize initialBlockCommentLine{0};
     keel::i32 hoveredGutterLine{-1};       ///< 0-based line hovered in breakpoint gutter
     keel::i32 hoveredFoldLine{-1};         ///< 0-based line hovered in folding chevron area
     keel::i32 hoveredDebugBtn{-1};         ///< Hovered button index in floating debug toolbar (0..5 = buttons, 98 = grip)
-    keel::StringRef hoveredWord{};   ///< Identifier currently under mouse cursor
-    keel::usize hoveredWordLine{0};       ///< 0-based line of hoveredWord
-    keel::usize hoveredWordCol{0};        ///< 0-based start col of hoveredWord
+    keel::StringRef hoveredWord{};         ///< Identifier currently under mouse cursor
+    keel::usize hoveredWordLine{0};        ///< 0-based line of hoveredWord
+    keel::usize hoveredWordCol{0};         ///< 0-based start col of hoveredWord
 };
 
 /// Autonomous high-performance TextArea / Code Editor widget logic (execution, measuring, and virtualized rendering).
@@ -346,11 +498,27 @@ namespace detail {
 
 class TextArea {
 public:
-    /// Primary immediate mode entry point for TextArea (editable or read-only).
+    /// Primary immediate mode entry point for TextArea backed by StringSink / StringRef (editable or read-only).
     static TextAreaResponse Run(
         Context& ctx,
         keel::Optional<keel::StringSink> stringValue,
         keel::StringRef displayFallback,
+        const TextAreaOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    );
+
+    /// Zero-copy immediate mode entry point for TextArea backed by a Piece-Tree TextDocument (1M+ lines & huge single lines).
+    static TextAreaResponse RunDocument(
+        Context& ctx,
+        TextDocument& doc,
+        const TextAreaOptions& opts = {},
+        keel::SourceLocation loc = keel::SourceLocation::current()
+    );
+
+    /// Zero-copy read-only immediate mode entry point for a const TextDocument.
+    static TextAreaResponse RunDocumentReadOnly(
+        Context& ctx,
+        const TextDocument& doc,
         const TextAreaOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
@@ -370,8 +538,16 @@ public:
         UiSize size,
         ICanvas* canvas = nullptr
     );
+    static Vec2 Measure(
+        const TextDocument& doc,
+        const TextAreaOptions& opts,
+        UiSize size,
+        ICanvas* canvas,
+        const UiTheme& theme,
+        keel::f32 availableWidth = 0.0f
+    );
 
-    /// Renders the external Element labels, editor frame, gutter, folding, breakpoints, minimap, search bar, debug bar, and syntax spans.
+    /// Renders the editor frame, gutter, folding, breakpoints, minimap, search bar, debug bar, and syntax spans.
     static void Render(
         ICanvas& canvas,
         Rect bounds,
@@ -414,6 +590,26 @@ public:
 using CodeEditorOptions = TextAreaOptions;
 using CodeEditorResponse = TextAreaResponse;
 
+inline TextAreaResponse TextArea(
+    Context& ui,
+    TextDocument& doc,
+    const TextAreaOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::TextArea::RunDocument(ui, doc, opts, loc);
+}
+
+inline TextAreaResponse TextArea(
+    Context& ui,
+    const TextDocument& doc,
+    const TextAreaOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    WidgetExecGuard guard(ui);
+    return detail::TextArea::RunDocumentReadOnly(ui, doc, opts, loc);
+}
+
 template <keel::WritableString S>
 TextAreaResponse TextArea(
     Context& ui,
@@ -433,6 +629,24 @@ inline TextAreaResponse TextArea(
 ) {
     WidgetExecGuard guard(ui);
     return detail::TextArea::Run(ui, keel::Optional<keel::StringSink>{}, value, opts, loc);
+}
+
+inline CodeEditorResponse CodeEditor(
+    Context& ui,
+    TextDocument& doc,
+    const CodeEditorOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return guikit::TextArea(ui, doc, opts, loc);
+}
+
+inline CodeEditorResponse CodeEditor(
+    Context& ui,
+    const TextDocument& doc,
+    const CodeEditorOptions& opts = {},
+    keel::SourceLocation loc = keel::SourceLocation::current()
+) {
+    return guikit::TextArea(ui, doc, opts, loc);
 }
 
 template <keel::WritableString S>

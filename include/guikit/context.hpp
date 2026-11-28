@@ -98,7 +98,10 @@ public:
     void SetImeTargetRect(Rect rect) noexcept { m_imeTargetRect = CurrentSpace().Apply(rect); }
     [[nodiscard]] Rect GetImeTargetRect() const noexcept { return m_imeTargetRect; }
     [[nodiscard]] bool WantsTextInput() const noexcept {
-        return m_focus.GetFocusedId().IsValid() && m_editState.id == m_focus.GetFocusedId() && !m_editState.readOnly;
+        const Id foc = m_focus.GetFocusedId();
+        if (!foc.IsValid()) return false;
+        return (m_editState.id == foc && !m_editState.readOnly) ||
+               (m_customTextEditId == foc && !m_customTextEditReadOnly);
     }
 
     [[nodiscard]] bool HasDroppedFiles() const noexcept { return !m_droppedFiles.empty(); }
@@ -422,6 +425,9 @@ public:
             FlushActiveEditHistory();
             m_editState.id = Id::Null();
         }
+        if (m_customTextEditId == m_focus.GetFocusedId()) {
+            m_customTextEditId = Id::Null();
+        }
         m_focus.SetFocusedId(Id::Null());
         m_focus.SetFocusVisible(false);
     }
@@ -514,6 +520,9 @@ public:
     bool UndoTextEdit(Id id);
     bool RedoTextEdit(Id id);
     void SetSuspendDirectEditInput(bool suspend) noexcept { m_suspendDirectEditInput = suspend; }
+    /// Registers a custom zero-copy text editor (e.g. TextDocument-backed TextArea or WYSIWYG MarkdownEditor)
+    /// as the active text input owner for IME activation, blink scheduling, and Tab capture without cloning into TextBuffer.
+    void RegisterCustomTextEdit(Id id, bool multiline, bool readOnly) noexcept;
     [[nodiscard]] bool GetTextEditSelection(Id id, keel::usize& outStart, keel::usize& outEnd) const noexcept;
     [[nodiscard]] keel::usize GetTextEditAnchor(Id id) const noexcept {
         return (m_editState.id == id && id.IsValid()) ? m_editState.selectionAnchor : 0;
@@ -692,6 +701,8 @@ public:
     void ConsumeMouseWheel() noexcept { m_mouseWheel = {0.0f, 0.0f}; }
     bool ConsumeKey(Key key);
     bool ConsumeKey(Key key, KeyModifiers& outMods);
+    bool ConsumeNextKey(Key& outKey, KeyModifiers& outMods) noexcept;
+    void ProcessPendingKeys(keel::FunctionRef<bool(Key, KeyModifiers)> handler);
     bool ConsumeShortcut(Key key, bool ctrl, bool shift = false, bool alt = false);
 
     // --- Semantic Keymap & Action Routing ---
@@ -849,6 +860,9 @@ private:
 
     // Active text editing buffer, diff undo/redo histories, IME & OS file drop state
     TextBuffer m_editState;
+    Id m_customTextEditId{Id::Null()};
+    bool m_customTextEditMultiline{false};
+    bool m_customTextEditReadOnly{false};
     keel::HashMap<Id, TextEditHistory> m_editHistories;
     ImeCompositionState m_ime;
     Rect m_imeTargetRect{0.0f, 0.0f, 0.0f, 0.0f};

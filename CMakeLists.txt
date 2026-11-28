@@ -103,6 +103,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/style/field_frame.cpp
     src/guikit/style/style_painter.cpp
     src/guikit/core/text_buffer.cpp
+    src/guikit/core/text_document.cpp
     src/guikit/style/theme.cpp
     src/guikit/core/assets.cpp
     src/guikit/core/text_util.cpp
@@ -183,7 +184,10 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/display/text.cpp
     src/guikit/fields/text_area.cpp
     src/guikit/fields/text_area_highlight.cpp
+    src/guikit/fields/text_area_languages.cpp
+    src/guikit/fields/text_area_layout.cpp
     src/guikit/fields/text_area_render.cpp
+    src/guikit/fields/text_area_search.cpp
     src/guikit/overlays/toast.cpp
 )
 
@@ -293,6 +297,13 @@ if (GUIKIT_BUILD_TESTS)
     target_link_libraries(test_core PRIVATE guikit::core)
     guikit_enforce_guidelines(test_core)
     add_test(NAME core COMMAND test_core)
+
+    add_executable(test_text_document
+        tests/test_text_document.cpp
+    )
+    target_link_libraries(test_text_document PRIVATE guikit::core)
+    guikit_enforce_guidelines(test_text_document)
+    add_test(NAME text_document COMMAND test_text_document)
 
     add_executable(test_layout
         tests/test_layout.cpp

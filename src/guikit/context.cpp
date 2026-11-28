@@ -52,10 +52,10 @@ void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 ro
     if (!m_overlays.GetOpenPopupId().IsValid()) {
         const Id curFocused = m_focus.GetFocusedId();
         const bool multilineEditorFocused =
-            curFocused.IsValid() &&
-            m_editState.id == curFocused &&
-            (m_editState.multiline || m_suspendDirectEditInput) &&
-            !m_editState.readOnly;
+            curFocused.IsValid() && (
+                (m_editState.id == curFocused && (m_editState.multiline || m_suspendDirectEditInput) && !m_editState.readOnly) ||
+                (m_customTextEditId == curFocused && m_customTextEditMultiline && !m_customTextEditReadOnly)
+            );
         for (keel::usize evIdx = 0; evIdx < m_pendingKeyEvents.size(); ) {
             const QueuedKeyEvent ev = m_pendingKeyEvents[evIdx];
             const bool isIndent = m_keymap.Matches(KeyAction::Indent, ev.key, ev.mods);
@@ -70,6 +70,9 @@ void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 ro
                 if (m_editState.id.IsValid() && m_editState.id != nextId) {
                     FlushActiveEditHistory();
                     m_editState.id = Id::Null();
+                }
+                if (m_customTextEditId.IsValid() && m_customTextEditId != nextId) {
+                    m_customTextEditId = Id::Null();
                 }
                 m_focus.SetFocusedId(nextId);
                 m_focus.SetInputModality(InputModality::Keyboard);
@@ -103,6 +106,9 @@ void Context::BeginFrame(Vec2 viewportSize, keel::f32 displayScale, keel::f32 ro
                 if (m_editState.id == curFocused) {
                     FlushActiveEditHistory();
                     m_editState.id = Id::Null();
+                }
+                if (m_customTextEditId == curFocused) {
+                    m_customTextEditId = Id::Null();
                 }
                 m_focus.SetFocusedId(Id::Null());
                 m_focus.SetFocusVisible(false);
@@ -535,6 +541,9 @@ void Context::RequestFocus(Id id, FocusReason reason) {
         FlushActiveEditHistory();
         m_editState.id = Id::Null();
     }
+    if (m_focus.GetFocusedId() != id && m_customTextEditId.IsValid() && m_customTextEditId != id) {
+        m_customTextEditId = Id::Null();
+    }
     m_focus.SetFocusedId(id);
     if (!id.IsValid()) {
         m_focus.SetFocusVisible(false);
@@ -590,7 +599,7 @@ keel::i32 Context::GetRecommendedSleepTimeoutMs() const noexcept {
     if (NeedsRepaint()) {
         return 0;
     }
-    if (m_editState.id.IsValid() && m_cursorConfig.mode == CursorBlinkMode::Blinking) {
+    if ((m_editState.id.IsValid() || m_customTextEditId.IsValid()) && m_cursorConfig.mode == CursorBlinkMode::Blinking) {
         return 120; // Periodically wake up for smooth cursor blinking
     }
     if (m_stateStore.HasUntrimmedInactive() && (m_idleHeartbeatMs <= 0 || m_idleHeartbeatMs > 500)) {
@@ -1271,6 +1280,49 @@ bool Context::ConsumeKey(Key key, KeyModifiers& outMods) {
     return false;
 }
 
+bool Context::ConsumeNextKey(Key& outKey, KeyModifiers& outMods) noexcept {
+    if (m_pendingKeyEvents.empty()) {
+        return false;
+    }
+    outKey = m_pendingKeyEvents[0].key;
+    outMods = m_pendingKeyEvents[0].mods;
+    m_pendingKeyEvents.remove_at(0);
+    return true;
+}
+
+void Context::ProcessPendingKeys(keel::FunctionRef<bool(Key, KeyModifiers)> handler) {
+    if (!handler || m_pendingKeyEvents.empty()) {
+        return;
+    }
+    keel::usize i = 0;
+    while (i < m_pendingKeyEvents.size()) {
+        const QueuedKeyEvent ev = m_pendingKeyEvents[i];
+        if (handler(ev.key, ev.mods)) {
+            m_pendingKeyEvents.remove_at(i);
+        } else {
+            ++i;
+        }
+    }
+}
+
+void Context::RegisterCustomTextEdit(Id id, bool multiline, bool readOnly) noexcept {
+    if (!id.IsValid()) {
+        m_customTextEditId = Id::Null();
+        m_customTextEditMultiline = false;
+        m_customTextEditReadOnly = false;
+        return;
+    }
+    if (m_editState.id.IsValid() && m_editState.id != id) {
+        FlushActiveEditHistory();
+        m_editState.id = Id::Null();
+    } else if (m_editState.id == id) {
+        m_editState.id = Id::Null();
+    }
+    m_customTextEditId = id;
+    m_customTextEditMultiline = multiline;
+    m_customTextEditReadOnly = readOnly;
+}
+
 bool Context::ConsumeShortcut(Key key, bool ctrl, bool shift, bool alt) {
     for (keel::usize i = 0; i < m_pendingKeyEvents.size(); ++i) {
         const auto& ev = m_pendingKeyEvents[i];
@@ -1708,6 +1760,9 @@ void Context::EndFrame(ICanvas& canvas) {
                 if (m_editState.id == curFocused) {
                     FlushActiveEditHistory();
                     m_editState.id = Id::Null();
+                }
+                if (m_customTextEditId == curFocused) {
+                    m_customTextEditId = Id::Null();
                 }
                 m_focus.SetFocusedId(Id::Null());
                 m_focus.SetFocusVisible(false);

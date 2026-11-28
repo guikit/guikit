@@ -6,6 +6,7 @@
 #include "guikit/core/image_cache.hpp"
 #include "guikit/core/shell_controls.hpp"
 #include "guikit/core/text_buffer.hpp"
+#include "guikit/core/text_document.hpp"
 #include "guikit/graphics/draw_list.hpp"
 
 // 1. Verify zero OS / C / third-party header & macro pollution in public headers

@@ -19,7 +19,6 @@ void DrawWavyUnderline(ICanvas& canvas, keel::f32 x0, keel::f32 x1, keel::f32 y,
     }
 }
 
-
 } // namespace detail::ta_impl
 
 using namespace detail::ta_impl;
@@ -42,6 +41,26 @@ Vec2 detail::TextArea::Measure(
     ICanvas* canvas
 ) {
     return Measure(text, opts, size, canvas, UiTheme::Dark(), 0.0f);
+}
+
+Vec2 detail::TextArea::Measure(
+    const TextDocument& doc,
+    const TextAreaOptions& opts,
+    UiSize size,
+    ICanvas* canvas,
+    const UiTheme& theme,
+    keel::f32 availableWidth
+) {
+    return MeasureEditorBoxFromStats(
+        doc.LineCount(),
+        doc.MaxLineByteLength(),
+        opts,
+        size,
+        canvas,
+        theme,
+        opts.zoom,
+        availableWidth
+    );
 }
 
 void detail::TextArea::Render(
@@ -84,8 +103,8 @@ void detail::TextArea::Render(
     const FontStyle textStyle = opts.monospace ? FontStyle::Monospace : FontStyle::Regular;
 
     const keel::f32 effZoom = keel::clamp(extData ? extData->zoom : opts.zoom, 0.5f, 3.0f);
-    const keel::f32 effScrollX = extData ? extData->scrollX : 0.0f;
-    const keel::f32 effScrollY = extData ? extData->scrollY : scrollY;
+    const keel::f64 effScrollX = extData ? extData->scrollX : 0.0;
+    const keel::f64 effScrollY = extData ? extData->scrollY : keel::as<keel::f64>(scrollY);
     const keel::usize selStart = extData ? extData->selectionStart : cursor;
     const keel::usize selEnd = extData ? extData->selectionEnd : cursor;
     const bool hasSelection = (selEnd > selStart);
@@ -95,36 +114,49 @@ void detail::TextArea::Render(
     const keel::ArrayRef<keel::usize> foldedLines = extData ? extData->foldedLines : keel::ArrayRef<keel::usize>{};
     const keel::ArrayRef<keel::usize> breakpoints = extData ? extData->breakpoints : opts.breakpoints.as_ref();
 
+    // Build unified TextSourceView (zero-copy for TextDocument, zero-alloc for precomputed flat lines!)
     keel::Array<LogicalLine> fallbackLogicalLines;
-    keel::ArrayRef<LogicalLine> logicalLines =
-        (extData && !extData->precomputedLogicalLines.empty()) ? extData->precomputedLogicalLines : keel::ArrayRef<LogicalLine>{};
-    if (logicalLines.empty()) {
-        SplitLogicalLines(text, fallbackLogicalLines);
-        logicalLines = fallbackLogicalLines;
+    keel::usize fallbackMaxLineBytes = 0u;
+    bool fallbackPureAscii = true;
+    TextSourceView source{};
+    if (extData && extData->document != nullptr) {
+        source = TextSourceView::FromDocument(*extData->document);
+    } else if (extData && !extData->precomputedLogicalLines.empty()) {
+        source = TextSourceView::FromFlat(
+            text, extData->precomputedLogicalLines, extData->cachedMaxLineBytes, extData->cachedPureAsciiNoTabs);
+    } else {
+        SplitLogicalLines(text, fallbackLogicalLines, &fallbackMaxLineBytes, &fallbackPureAscii);
+        source = TextSourceView::FromFlat(text, fallbackLogicalLines, fallbackMaxLineBytes, fallbackPureAscii);
     }
+
+    const keel::usize totalLogicalLines = source.LineCount();
 
     keel::Array<FoldRegion> fallbackFoldRegions;
     keel::ArrayRef<FoldRegion> foldRegions =
         (extData && opts.codeFolding) ? extData->precomputedFoldRegions : keel::ArrayRef<FoldRegion>{};
-    if (opts.codeFolding && (!extData || extData->precomputedLogicalLines.empty())) {
-        ComputeFoldRegions(text, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, fallbackFoldRegions);
+    if (opts.codeFolding && !extData) {
+        ComputeFoldRegions(source, opts.syntax.has_value() ? &*opts.syntax : nullptr, fallbackFoldRegions);
         foldRegions = fallbackFoldRegions;
     }
 
-    keel::Array<VisualLine> visualLines;
+    TextViewProjection proj{};
+    keel::Array<VisualLine> fallbackExactBuf;
+    keel::Array<keel::usize> fallbackSmallPrefix;
+    keel::Array<keel::usize> fallbackChunkPrefix;
     const EditorLayoutRects L = ComputeEditorLayout(
-        bounds, text, logicalLines, opts, size, &canvas, theme,
+        bounds, source, opts, size, &canvas, theme,
         effZoom, effScrollX, effScrollY,
         extData ? extData->copyFeedbackActive : false,
         searchOpen, replaceOpen, gotoOpen,
-        foldRegions, foldedLines, visualLines,
+        foldRegions, foldedLines, 0u, nullptr, extData,
+        proj, fallbackExactBuf, fallbackSmallPrefix, fallbackChunkPrefix,
         extData ? extData->debugToolbarRatio : -1.0f
     );
 
     const Rect editorBox = L.editorBox;
     if (editorBox.w <= 0.0f || editorBox.h <= 0.0f) return;
 
-    // Render editor container frame via FieldFrame
+    // 1. Editor frame via FieldFrame
     const keel::f32 r = theme.ResolveRadius(opts.border.radius, size);
     FieldFrame::Draw(canvas, theme, FieldFrameParams{
         .rect = editorBox,
@@ -143,35 +175,49 @@ void detail::TextArea::Render(
     const Rect innerBounds = L.innerBounds;
     if (innerBounds.w <= 2.0f || innerBounds.h <= 2.0f) return;
 
-    // Precompute search matches and word occurrence target
-    keel::Array<SearchMatch> searchMatches;
+    // 2. Reuse precomputed search matches & overview ruler buckets (0 work in Render!)
+    keel::Array<SearchMatch> fallbackSearchMatches;
+    keel::StaticArray<keel::u8, TextAreaState::kSearchRulerBuckets> fallbackRulerBuckets{};
+    bool searchCapped = extData ? extData->searchMatchesCapped : false;
+    keel::ArrayRef<SearchMatch> searchMatches{};
+    keel::ArrayRef<keel::u8> searchRulerBuckets{};
     if (searchOpen && extData && !extData->searchQuery.empty()) {
-        FindAllSearchMatches(text, logicalLines, extData->searchQuery, extData->matchCase, extData->wholeWord, searchMatches);
+        if (!extData->precomputedSearchMatches.empty() || extData->searchMatchCount == 0u) {
+            searchMatches = extData->precomputedSearchMatches;
+            searchRulerBuckets = extData->searchRulerBuckets;
+        } else {
+            FindAllSearchMatches(
+                source, extData->searchQuery, extData->matchCase, extData->wholeWord,
+                fallbackSearchMatches, fallbackRulerBuckets.as_mut_ref(), searchCapped, kMaxStoredSearchMatches);
+            searchMatches = fallbackSearchMatches;
+            searchRulerBuckets = fallbackRulerBuckets.as_ref();
+        }
     }
 
-    const keel::usize safeCursor = keel::min(cursor, text.size());
+    const keel::usize safeCursor = keel::min(cursor, source.ByteLength());
+    keel::String activeWordScratch;
     keel::StringRef activeWord{};
     if (opts.highlightOccurrences && focused && !disabled && !searchOpen) {
-        if (hasSelection && (selEnd - selStart) <= 48) {
-            const keel::StringRef s = text.substr(selStart, selEnd - selStart);
+        if (hasSelection && (selEnd - selStart) <= 48u) {
+            const keel::StringRef s = source.ReadSliceRef(selStart, selEnd - selStart, activeWordScratch);
             bool validIdent = !s.empty() && IsIdentStart(s[0]);
             for (char ch : s) {
                 if (!IsIdentChar(ch)) { validIdent = false; break; }
             }
             if (validIdent) activeWord = s;
         } else if (!hasSelection) {
-            activeWord = ExtractWordAtOffset(text, safeCursor);
+            activeWord = ExtractWordAtOffset(source, safeCursor, activeWordScratch);
         }
     }
 
     keel::usize matchBracketOpen = keel::StringRef::npos;
     keel::usize matchBracketClose = keel::StringRef::npos;
     const bool hasBracketPair = opts.matchBrackets && focused && !disabled &&
-        FindMatchingBracketPair(text, safeCursor, matchBracketOpen, matchBracketClose);
+        FindMatchingBracketPair(source, safeCursor, matchBracketOpen, matchBracketClose);
 
     canvas.PushClip(innerBounds);
 
-    // 3. Line numbers & debugger gutter background
+    // 3. Gutter background
     if (L.gutterWidth > 0.0f) {
         canvas.DrawRect(L.gutterRect, editorGutterBg);
         canvas.DrawLine(
@@ -183,14 +229,15 @@ void detail::TextArea::Render(
     }
 
     const Rect textViewport = L.textViewport;
-    const keel::f32 clampedScrollY = keel::clamp(effScrollY, 0.0f, L.maxScrollY);
-    const keel::f32 clampedScrollX = keel::clamp(effScrollX, 0.0f, L.maxScrollX);
+    const keel::f64 clampedScrollY = keel::clamp(effScrollY, 0.0, L.maxScrollY);
+    const keel::f64 clampedScrollX = keel::clamp(effScrollX, 0.0, L.maxScrollX);
 
-    const keel::usize activeVisRow = FindVisualLineForOffset(visualLines, safeCursor);
-    const keel::usize activeLogicalLine = visualLines[activeVisRow].logicalLine;
+    const keel::usize activeVisRow = proj.OffsetToVisualRow(safeCursor);
+    const TextLineCol activeLc = source.OffsetToLineCol(safeCursor);
+    const keel::usize activeLogicalLine = activeLc.line;
 
     // 4. Placeholder when empty
-    if (text.empty() && !opts.placeholder.empty() && !focused) {
+    if (source.Empty() && !opts.placeholder.empty() && !focused) {
         TextUtil::DrawUiText(
             canvas,
             opts.placeholder,
@@ -204,64 +251,48 @@ void detail::TextArea::Render(
         );
     }
 
-    // 5. Virtualized visible lines loop
-    const keel::usize totalVisLines = visualLines.size();
-    const keel::usize firstVisLine = (L.lineHeight > 0.0f)
-        ? keel::as<keel::usize>(keel::max(0.0f, keel::floor(clampedScrollY / L.lineHeight)))
-        : 0;
-    const keel::usize maxVisCount = (L.lineHeight > 0.0f)
-        ? (keel::as<keel::usize>(keel::ceil(textViewport.h / L.lineHeight)) + 2)
-        : totalVisLines;
+    // 5. 2D Virtualized visible rows × visible columns loop
+    const keel::usize totalVisLines = L.totalVisualRows;
+    const keel::f64 lineHD = keel::max(1.0, keel::as<keel::f64>(L.lineHeight));
+    const keel::usize firstVisLine = keel::as<keel::usize>(keel::max(0.0, keel::floor(clampedScrollY / lineHD)));
+    const keel::usize maxVisCount = keel::as<keel::usize>(keel::ceil(keel::as<keel::f64>(textViewport.h) / lineHD)) + 2u;
     const keel::usize lastVisLine = keel::min(totalVisLines, firstVisLine + maxVisCount);
 
     keel::Array<TextSpan> syntaxSpans;
-    syntaxSpans.reserve(32);
-    keel::usize cachedLogicalLine = keel::as<keel::usize>(-1);
+    syntaxSpans.reserve(32u);
+    keel::usize cachedSyntaxLine = keel::as<keel::usize>(-1);
 
     const bool useCallbackSyntax = (opts.syntaxHighlighter != nullptr);
     const bool useConfigSyntax = (!useCallbackSyntax && opts.syntax.has_value() && opts.syntax->enabled);
     const bool anySyntax = (useCallbackSyntax || useConfigSyntax) && !disabled;
 
-    // Compute multiline block comment state up to the first visible logical line
+    // Use pre-resolved checkpointed multiline block comment state (O(1) on 1M+ lines!)
     bool inBlockComment = false;
     if (useConfigSyntax && !opts.syntax->blockCommentStart.empty() && !opts.syntax->blockCommentEnd.empty() && firstVisLine < totalVisLines) {
-        const keel::usize targetLog = visualLines[firstVisLine].logicalLine;
-        const keel::usize scanStart = (targetLog > 250) ? (targetLog - 250) : 0;
-        for (keel::usize li = scanStart; li < targetLog; ++li) {
-            const keel::StringRef ls = text.substr(logicalLines[li].startOffset, logicalLines[li].length);
-            keel::usize pos = 0;
-            while (pos < ls.size()) {
-                if (!inBlockComment) {
-                    if (!opts.syntax->lineComment.empty() && ls.substr(pos).starts_with(opts.syntax->lineComment) &&
-                        !ls.substr(pos).starts_with(opts.syntax->blockCommentStart)) {
-                        break;
-                    }
-                    const keel::usize bStart = ls.find(opts.syntax->blockCommentStart, pos);
-                    if (bStart == keel::StringRef::npos) break;
-                    inBlockComment = true;
-                    pos = bStart + opts.syntax->blockCommentStart.size();
-                } else {
-                    const keel::usize bEnd = ls.find(opts.syntax->blockCommentEnd, pos);
-                    if (bEnd == keel::StringRef::npos) break;
-                    inBlockComment = false;
-                    pos = bEnd + opts.syntax->blockCommentEnd.size();
-                }
-            }
+        const keel::usize targetLog = proj.VisualRowAt(firstVisLine).logicalLine;
+        if (extData && extData->hasInitialBlockComment && extData->initialBlockCommentLine == targetLog) {
+            inBlockComment = extData->initialInBlockComment;
+        } else {
+            inBlockComment = ResolveBlockCommentStateAtLine(source, *opts.syntax, targetLog, 0u, nullptr);
         }
     }
 
     Rect hoveredWordScreenRect{};
+    keel::String visSliceScratch;
+    keel::String fullLineScratch;
+    keel::String leadScratch;
+    keel::String colScratch;
 
     for (keel::usize vIdx = firstVisLine; vIdx < lastVisLine; ++vIdx) {
-        const VisualLine& vl = visualLines[vIdx];
-        const keel::f32 lineY = textViewport.y + keel::as<keel::f32>(vIdx) * L.lineHeight - clampedScrollY;
+        const VisualLine vl = proj.VisualRowAt(vIdx);
+        // f64 subtraction BEFORE f32 cast guarantees sub-pixel accuracy even at line 10,000,000!
+        const keel::f32 lineY = textViewport.y + keel::as<keel::f32>(keel::as<keel::f64>(vIdx) * lineHD - clampedScrollY);
         if (lineY + L.lineHeight < innerBounds.y || lineY > innerBounds.Bottom()) {
             continue;
         }
 
-        const bool isExecLine = (opts.executionLine == vl.logicalLine + 1);
+        const bool isExecLine = (opts.executionLine == vl.logicalLine + 1u);
 
-        // Debugger execution line golden highlight OR active cursor line highlight
         if (isExecLine) {
             canvas.DrawRect(
                 Rect(innerBounds.x + L.gutterWidth, lineY, innerBounds.w - L.gutterWidth - L.minimapWidth, L.lineHeight),
@@ -284,8 +315,7 @@ void detail::TextArea::Render(
         if (L.gutterWidth > 0.0f && vl.isFirstSubLine) {
             const keel::f32 centerY = lineY + L.lineHeight * 0.5f;
 
-            // Breakpoint indicator (left lane of bpColWidth)
-            const bool hasBp = ContainsSizeT(breakpoints, vl.logicalLine + 1);
+            const bool hasBp = ContainsSizeT(breakpoints, vl.logicalLine + 1u);
             const bool hovBp = extData && (extData->hoveredGutterLine == keel::as<keel::i32>(vl.logicalLine));
             if (hasBp || hovBp) {
                 const keel::f32 bpR = keel::min(L.lineHeight * 0.28f, 5.0f * effZoom);
@@ -294,27 +324,23 @@ void detail::TextArea::Render(
                 canvas.DrawRoundRect(Rect(bpX - bpR, centerY - bpR, bpR * 2.0f, bpR * 2.0f), bpR, bpCol, hasBp ? Color(254, 202, 202, 180) : Color(0, 0, 0, 0), 1.0f);
             }
 
-            // Debugger execution arrow (â–¶) (right lane of bpColWidth, never overlapping breakpoint)
             if (isExecLine) {
                 const keel::f32 ax = innerBounds.x + keel::max(14.5f * effZoom, L.bpColWidth * 0.56f);
                 const keel::f32 aw = 7.5f * effZoom;
                 const keel::f32 ah = 5.0f * effZoom;
-                const Color arrowFill(251, 191, 36, 255);
-                const Color arrowStroke(180, 83, 9, 255);
                 canvas.DrawTriangle(
                     {ax, centerY - ah},
                     {ax, centerY + ah},
                     {ax + aw, centerY},
-                    arrowFill,
-                    arrowStroke,
+                    Color(251, 191, 36, 255),
+                    Color(180, 83, 9, 255),
                     1.0f
                 );
             }
 
-            // Line number
             if (opts.showLineNumbers) {
-                char numBuf[16]{};
-                const keel::i32 nLen = std::snprintf(numBuf, sizeof(numBuf), "%zu", vl.logicalLine + 1);
+                char numBuf[24]{};
+                const keel::i32 nLen = std::snprintf(numBuf, sizeof(numBuf), "%zu", vl.logicalLine + 1u);
                 if (nLen > 0) {
                     const keel::StringRef numStr(numBuf, keel::as<keel::usize>(nLen));
                     const bool isCurrentLine = focused && !disabled && (vl.logicalLine == activeLogicalLine);
@@ -328,7 +354,6 @@ void detail::TextArea::Render(
                 }
             }
 
-            // Code folding chevron (â–¾ / â–¸)
             if (opts.codeFolding) {
                 if (FindFoldRegionStartingAt(foldRegions, vl.logicalLine) != nullptr) {
                     const bool isFolded = IsLineFoldedStart(foldedLines, vl.logicalLine);
@@ -349,40 +374,60 @@ void detail::TextArea::Render(
         // Clip and render code/text within textViewport
         canvas.PushClip(Rect(textViewport.x, innerBounds.y, textViewport.w, innerBounds.h));
 
-        const keel::f32 startX = textViewport.x - clampedScrollX;
+        const TextLineRange lr = source.LineByteRange(vl.logicalLine);
         const keel::usize vlEndOffset = vl.startOffset + vl.length;
-        const LogicalLine& ll = logicalLines[vl.logicalLine];
-        const keel::StringRef fullLineStr = text.substr(ll.startOffset, ll.length);
-        const keel::StringRef subLineStr = text.substr(vl.startOffset, vl.length);
+        const HorizontalWindow hw = ComputeHorizontalWindow(
+            source, vl, L.metrics, opts.monospace, clampedScrollX, textViewport.w);
+        const keel::usize winGlobalStart = vl.startOffset + hw.colByteStart;
+        const keel::usize winGlobalEnd = winGlobalStart + hw.colByteLen;
+        // f64 horizontal subtraction before f32 cast guarantees exact rendering at col 5,000,000!
+        const keel::f32 winStartX = textViewport.x + keel::as<keel::f32>(hw.startXOffset - clampedScrollX);
+        const keel::StringRef visSlice = source.ReadSliceRef(winGlobalStart, hw.colByteLen, visSliceScratch);
 
-        // Indent guides
-        const keel::usize tabStep = keel::clamp<keel::usize>(opts.tabSize, 1, 16);
-        if (opts.showIndentGuides && vl.isFirstSubLine && !fullLineStr.empty()) {
-            keel::usize leadSpaces = 0;
-            for (char ch : fullLineStr) {
+        auto colInSubToScreenX = [&](keel::usize colInSub) noexcept -> keel::f32 {
+            if (hw.fastMonospaceAscii) {
+                const keel::f64 xD = keel::as<keel::f64>(colInSub) * keel::as<keel::f64>(L.metrics.monoCharAdvance);
+                return textViewport.x + keel::as<keel::f32>(xD - clampedScrollX);
+            }
+            if (colInSub >= hw.colByteStart && colInSub <= hw.colByteStart + hw.colByteLen) {
+                return winStartX + MeasureSegmentWidth(&canvas, visSlice.substr(0u, colInSub - hw.colByteStart), L.fontSize, textStyle, opts.tabSize);
+            }
+            const keel::f64 xD = MeasureColumnXInVisualRow(source, vl, colInSub, L.metrics, textStyle, &canvas, opts.tabSize, colScratch);
+            return textViewport.x + keel::as<keel::f32>(xD - clampedScrollX);
+        };
+
+        // Indent guides (bounded read of first <= 256 bytes, never reads 10 MB lines!)
+        const keel::usize tabStep = keel::clamp<keel::usize>(opts.tabSize, 1u, 16u);
+        if (opts.showIndentGuides && vl.isFirstSubLine && lr.contentBytes > 0u && clampedScrollX < 2048.0) {
+            const keel::StringRef lead = source.ReadSliceRef(lr.startByte, keel::min<keel::usize>(lr.contentBytes, 256u), leadScratch);
+            keel::usize leadSpaces = 0u;
+            for (char ch : lead) {
                 if (ch == ' ') ++leadSpaces;
                 else if (ch == '\t') leadSpaces += tabStep;
                 else break;
             }
             const Color guideCol = hasCustomEditorSurface ? editorBorderSubtle : pal.borderSubtle.WithAlphaF(0.42f);
             for (keel::usize g = tabStep; g < leadSpaces; g += tabStep) {
-                const keel::f32 gx = startX + keel::as<keel::f32>(g) * L.metrics.spaceAdvance;
+                const keel::f32 gx = textViewport.x + keel::as<keel::f32>(keel::as<keel::f64>(g) * keel::as<keel::f64>(L.metrics.spaceAdvance) - clampedScrollX);
                 if (gx >= textViewport.x && gx <= textViewport.Right()) {
                     canvas.DrawLine({gx, lineY}, {gx, lineY + L.lineHeight}, guideCol, 1.0f);
                 }
             }
         }
 
-        // Word occurrence highlights on this line
-        if (!activeWord.empty() && subLineStr.size() >= activeWord.size()) {
+        // Word occurrence highlights inside visible 2D slice only (O(visibleCols)!)
+        if (!activeWord.empty() && visSlice.size() >= activeWord.size()) {
             const keel::usize wLen = activeWord.size();
-            for (keel::usize col = 0; col + wLen <= subLineStr.size(); ) {
-                if (subLineStr.substr(col, wLen) == activeWord) {
-                    const bool leftOk = (col == 0) || !IsIdentChar(subLineStr[col - 1]);
-                    const bool rightOk = (col + wLen == subLineStr.size()) || !IsIdentChar(subLineStr[col + wLen]);
+            for (keel::usize col = 0u; col + wLen <= visSlice.size(); ) {
+                if (visSlice.substr(col, wLen) == activeWord) {
+                    const keel::usize matchGlobal = winGlobalStart + col;
+                    const bool leftOk = (matchGlobal == vl.startOffset) || !IsIdentChar(source.ByteAt(matchGlobal - 1u));
+                    const bool rightOk = (matchGlobal + wLen == vlEndOffset) || !IsIdentChar(source.ByteAt(matchGlobal + wLen));
                     if (leftOk && rightOk) {
-                        const keel::f32 ox = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, col), L.fontSize, textStyle, opts.tabSize);
-                        const keel::f32 ow = MeasureSegmentWidth(&canvas, activeWord, L.fontSize, textStyle, opts.tabSize);
+                        const keel::f32 ox = colInSubToScreenX(hw.colByteStart + col);
+                        const keel::f32 ow = hw.fastMonospaceAscii
+                            ? (keel::as<keel::f32>(wLen) * L.metrics.monoCharAdvance)
+                            : MeasureSegmentWidth(&canvas, activeWord, L.fontSize, textStyle, opts.tabSize);
                         canvas.DrawRoundRect(
                             Rect(ox - 1.0f, lineY + 1.0f, ow + 2.0f, L.lineHeight - 2.0f),
                             2.5f,
@@ -398,16 +443,18 @@ void detail::TextArea::Render(
             }
         }
 
-        // Search match highlights on this line
-        if (!searchMatches.empty()) {
-            for (keel::usize mi = 0; mi < searchMatches.size(); ++mi) {
+        // Search match highlights on this visible window via O(log M) binary search!
+        if (!searchMatches.empty() && winGlobalEnd > winGlobalStart) {
+            const keel::usize firstM = FindFirstSearchMatchAtOrAfter(searchMatches, winGlobalStart);
+            for (keel::usize mi = firstM; mi < searchMatches.size(); ++mi) {
                 const SearchMatch& m = searchMatches[mi];
-                if (m.logicalLine != vl.logicalLine) continue;
-                if (m.endOffset <= vl.startOffset || m.startOffset >= vlEndOffset) continue;
-                const keel::usize s0 = keel::max(m.startOffset, vl.startOffset) - vl.startOffset;
-                const keel::usize s1 = keel::min(m.endOffset, vlEndOffset) - vl.startOffset;
-                const keel::f32 mx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle, opts.tabSize);
-                const keel::f32 mw = MeasureSegmentWidth(&canvas, subLineStr.substr(s0, s1 - s0), L.fontSize, textStyle, opts.tabSize);
+                if (m.startOffset >= winGlobalEnd) break;
+                if (m.endOffset <= winGlobalStart) continue;
+                const keel::usize s0 = keel::max(m.startOffset, winGlobalStart) - vl.startOffset;
+                const keel::usize s1 = keel::min(m.endOffset, winGlobalEnd) - vl.startOffset;
+                const keel::f32 mx = colInSubToScreenX(s0);
+                const keel::f32 mxEnd = colInSubToScreenX(s1);
+                const keel::f32 mw = keel::max(2.0f, mxEnd - mx);
                 const bool isActiveMatch = (extData && mi == extData->activeMatchIdx);
                 const Color mFill = isActiveMatch ? Color(245, 158, 11, 120) : Color(245, 158, 11, 58);
                 const Color mStroke = isActiveMatch ? Color(251, 191, 36, 240) : Color(245, 158, 11, 140);
@@ -415,18 +462,18 @@ void detail::TextArea::Render(
             }
         }
 
-        // Selection highlight rectangle
+        // Selection highlight rectangle clipped to visible horizontal window
         if (hasSelection && focused && !disabled) {
-            const keel::usize s0 = keel::max(selStart, vl.startOffset);
-            const keel::usize s1 = keel::min(selEnd, vlEndOffset);
-            if (s1 > s0 || (selStart <= vl.startOffset && selEnd > vlEndOffset)) {
-                const keel::StringRef preSel = text.substr(vl.startOffset, s0 - vl.startOffset);
-                const keel::StringRef midSel = text.substr(s0, s1 - s0);
-                const keel::f32 selX0 = startX + MeasureSegmentWidth(&canvas, preSel, L.fontSize, textStyle, opts.tabSize);
-                keel::f32 selW = MeasureSegmentWidth(&canvas, midSel, L.fontSize, textStyle, opts.tabSize);
-                if (selEnd > vlEndOffset) {
-                    selW += L.metrics.spaceAdvance;
+            const keel::usize s0 = keel::max(selStart, winGlobalStart);
+            const keel::usize s1 = keel::min(selEnd, winGlobalEnd);
+            const bool fullRowSelectedPastEnd = (selStart <= vl.startOffset && selEnd > vlEndOffset && winGlobalEnd == vlEndOffset);
+            if (s1 > s0 || fullRowSelectedPastEnd) {
+                const keel::f32 selX0 = colInSubToScreenX(s0 - vl.startOffset);
+                keel::f32 selX1 = (s1 > s0) ? colInSubToScreenX(s1 - vl.startOffset) : selX0;
+                if (selEnd > vlEndOffset && winGlobalEnd == vlEndOffset) {
+                    selX1 += L.metrics.spaceAdvance;
                 }
+                const keel::f32 selW = selX1 - selX0;
                 if (selW > 0.0f) {
                     canvas.DrawRect(Rect(selX0, lineY, selW, L.lineHeight), synPal.selectionBg);
                 }
@@ -437,10 +484,9 @@ void detail::TextArea::Render(
         if (hasBracketPair) {
             const keel::usize bracketOffsets[2] = {matchBracketOpen, matchBracketClose};
             for (keel::usize bOff : bracketOffsets) {
-                if (bOff >= vl.startOffset && bOff < vlEndOffset) {
-                    const keel::usize bCol = bOff - vl.startOffset;
-                    const keel::f32 bx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, bCol), L.fontSize, textStyle, opts.tabSize);
-                    const keel::f32 bw = L.metrics.spaceAdvance;
+                if (bOff >= winGlobalStart && bOff < winGlobalEnd) {
+                    const keel::f32 bx = colInSubToScreenX(bOff - vl.startOffset);
+                    const keel::f32 bw = opts.monospace ? L.metrics.monoCharAdvance : L.metrics.spaceAdvance;
                     canvas.DrawRoundRect(
                         Rect(bx - 1.0f, lineY + 1.5f, bw + 2.0f, L.lineHeight - 3.0f),
                         2.0f,
@@ -454,19 +500,20 @@ void detail::TextArea::Render(
 
         // Track screen position of hoveredWord for DataTip overlay
         if (extData && !extData->hoveredWord.empty() && vl.logicalLine == extData->hoveredWordLine && vl.isFirstSubLine) {
-            const keel::usize wCol = keel::min(extData->hoveredWordCol, subLineStr.size());
-            const keel::f32 wx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, wCol), L.fontSize, textStyle, opts.tabSize);
-            const keel::f32 ww = MeasureSegmentWidth(&canvas, extData->hoveredWord, L.fontSize, textStyle, opts.tabSize);
-            hoveredWordScreenRect = Rect(wx, lineY, ww, L.lineHeight);
+            if (extData->hoveredWordCol >= hw.colByteStart && extData->hoveredWordCol <= hw.colByteStart + hw.colByteLen) {
+                const keel::f32 wx = colInSubToScreenX(extData->hoveredWordCol);
+                const keel::f32 ww = MeasureSegmentWidth(&canvas, extData->hoveredWord, L.fontSize, textStyle, opts.tabSize);
+                hoveredWordScreenRect = Rect(wx, lineY, ww, L.lineHeight);
+            }
         }
 
-        // Render text or syntax spans
+        // Render text or syntax spans across visible slice
         const Color wsCol = editorTextMuted.WithAlphaF(0.55f);
         const keel::f32 wsCenterY = lineY + L.lineHeight * 0.52f;
         const keel::f32 wsDotR = keel::max(1.1f, 1.35f * effZoom);
         auto drawSpaceDots = [&](keel::f32 baseX, keel::usize count) {
-            if (!opts.showWhitespace || count == 0) return;
-            for (keel::usize i = 0; i < count; ++i) {
+            if (!opts.showWhitespace || count == 0u) return;
+            for (keel::usize i = 0u; i < count; ++i) {
                 const keel::f32 dx = baseX + (keel::as<keel::f32>(i) + 0.5f) * L.metrics.spaceAdvance;
                 if (dx >= textViewport.x - 2.0f && dx <= textViewport.Right() + 2.0f) {
                     canvas.DrawRoundRect(Rect(dx - wsDotR, wsCenterY - wsDotR, wsDotR * 2.0f, wsDotR * 2.0f), wsDotR, wsCol);
@@ -474,12 +521,12 @@ void detail::TextArea::Render(
             }
         };
         auto drawTabArrows = [&](keel::f32 baseX, keel::usize count) {
-            if (!opts.showWhitespace || count == 0) return;
+            if (!opts.showWhitespace || count == 0u) return;
             const keel::f32 strokeW = keel::max(1.0f, 1.15f * effZoom);
             const keel::f32 headSz = keel::min(L.lineHeight * 0.20f, L.metrics.spaceAdvance * 0.45f);
-            for (keel::usize i = 0; i < count; ++i) {
+            for (keel::usize i = 0u; i < count; ++i) {
                 const keel::f32 tx0 = baseX + keel::as<keel::f32>(i) * L.metrics.tabAdvance + L.metrics.spaceAdvance * 0.35f;
-                const keel::f32 tx1 = baseX + keel::as<keel::f32>(i + 1) * L.metrics.tabAdvance - L.metrics.spaceAdvance * 0.35f;
+                const keel::f32 tx1 = baseX + keel::as<keel::f32>(i + 1u) * L.metrics.tabAdvance - L.metrics.spaceAdvance * 0.35f;
                 if (tx1 >= textViewport.x - 2.0f && tx0 <= textViewport.Right() + 2.0f && tx1 > tx0) {
                     canvas.DrawLine({tx0, wsCenterY}, {tx1, wsCenterY}, wsCol, strokeW);
                     canvas.DrawLine({tx1 - headSz, wsCenterY - headSz}, {tx1, wsCenterY}, wsCol, strokeW);
@@ -488,49 +535,46 @@ void detail::TextArea::Render(
             }
         };
 
-        keel::f32 curX = startX;
-        if (vl.length > 0) {
+        keel::f32 curX = winStartX;
+        if (!visSlice.empty()) {
             auto drawPiece = [&](keel::StringRef piece, Color col) {
-                keel::usize p = 0;
+                keel::usize p = 0u;
                 while (p < piece.size()) {
                     if (piece[p] == '\t') {
-                        keel::usize tabEnd = p + 1;
-                        while (tabEnd < piece.size() && piece[tabEnd] == '\t') {
-                            ++tabEnd;
-                        }
+                        keel::usize tabEnd = p + 1u;
+                        while (tabEnd < piece.size() && piece[tabEnd] == '\t') ++tabEnd;
                         const keel::usize tabCount = tabEnd - p;
                         drawTabArrows(curX, tabCount);
                         curX += keel::as<keel::f32>(tabCount) * L.metrics.tabAdvance;
                         p = tabEnd;
                     } else {
                         keel::usize nextTab = piece.find('\t', p);
-                        if (nextTab == keel::StringRef::npos) {
-                            nextTab = piece.size();
-                        }
+                        if (nextTab == keel::StringRef::npos) nextTab = piece.size();
                         const keel::StringRef seg = piece.substr(p, nextTab - p);
 
-                        keel::usize firstNonSpace = 0;
-                        while (firstNonSpace < seg.size() && seg[firstNonSpace] == ' ') {
-                            ++firstNonSpace;
-                        }
-                        if (firstNonSpace > 0) {
+                        keel::usize firstNonSpace = 0u;
+                        while (firstNonSpace < seg.size() && seg[firstNonSpace] == ' ') ++firstNonSpace;
+                        if (firstNonSpace > 0u) {
                             drawSpaceDots(curX, firstNonSpace);
                             curX += keel::as<keel::f32>(firstNonSpace) * L.metrics.spaceAdvance;
                         }
 
                         if (firstNonSpace < seg.size()) {
                             keel::usize lastNonSpace = seg.size();
-                            while (lastNonSpace > firstNonSpace && seg[lastNonSpace - 1] == ' ') {
-                                --lastNonSpace;
-                            }
+                            while (lastNonSpace > firstNonSpace && seg[lastNonSpace - 1u] == ' ') --lastNonSpace;
                             const keel::StringRef body = seg.substr(firstNonSpace, lastNonSpace - firstNonSpace);
-                            const keel::f32 bodyW = MeasureChunkNoTabs(&canvas, body, L.fontSize, textStyle);
+                            const keel::f32 bodyW = hw.fastMonospaceAscii
+                                ? (keel::as<keel::f32>(body.size()) * L.metrics.monoCharAdvance)
+                                : MeasureChunkNoTabs(&canvas, body, L.fontSize, textStyle);
                             if (curX + bodyW >= textViewport.x - 4.0f && curX <= textViewport.Right() + 4.0f) {
                                 canvas.DrawTextStyled(body, Vec2{curX, textY}, L.fontSize, col, textStyle);
                                 if (opts.showWhitespace) {
-                                    for (keel::usize bi = 0; bi < body.size(); ++bi) {
+                                    for (keel::usize bi = 0u; bi < body.size(); ++bi) {
                                         if (body[bi] == ' ') {
-                                            const keel::f32 spX = curX + MeasureChunkNoTabs(&canvas, body.substr(0, bi), L.fontSize, textStyle) + L.metrics.spaceAdvance * 0.5f;
+                                            const keel::f32 spX = curX + (hw.fastMonospaceAscii
+                                                ? (keel::as<keel::f32>(bi) * L.metrics.monoCharAdvance)
+                                                : MeasureChunkNoTabs(&canvas, body.substr(0u, bi), L.fontSize, textStyle))
+                                                + L.metrics.spaceAdvance * 0.5f;
                                             canvas.DrawRoundRect(Rect(spX - wsDotR, wsCenterY - wsDotR, wsDotR * 2.0f, wsDotR * 2.0f), wsDotR, wsCol);
                                         }
                                     }
@@ -539,7 +583,7 @@ void detail::TextArea::Render(
                             curX += bodyW;
 
                             const keel::usize trailingSpaces = seg.size() - lastNonSpace;
-                            if (trailingSpaces > 0) {
+                            if (trailingSpaces > 0u) {
                                 drawSpaceDots(curX, trailingSpaces);
                                 curX += keel::as<keel::f32>(trailingSpaces) * L.metrics.spaceAdvance;
                             }
@@ -549,8 +593,11 @@ void detail::TextArea::Render(
                 }
             };
 
-            if (anySyntax) {
-                if (cachedLogicalLine != vl.logicalLine) {
+            // Guard against full-line tokenization on very long lines (> 20 KB, matching VS Code)
+            const bool allowSyntaxOnLine = anySyntax && (lr.contentBytes <= kMaxSyntaxLineBytes);
+            if (allowSyntaxOnLine) {
+                const keel::StringRef fullLineStr = source.ReadSliceRef(lr.startByte, lr.contentBytes, fullLineScratch);
+                if (cachedSyntaxLine != vl.logicalLine) {
                     syntaxSpans.clear();
                     if (useCallbackSyntax) {
                         opts.syntaxHighlighter(fullLineStr, vl.logicalLine, syntaxSpans, theme);
@@ -565,21 +612,21 @@ void detail::TextArea::Render(
                             &inBlockComment
                         );
                     }
-                    cachedLogicalLine = vl.logicalLine;
+                    cachedSyntaxLine = vl.logicalLine;
                 }
 
-                const keel::usize subStartCol = vl.startCol;
-                const keel::usize subEndCol = vl.startCol + vl.length;
-                keel::usize curCol = subStartCol;
+                const keel::usize visStartInLine = vl.startCol + hw.colByteStart;
+                const keel::usize visEndInLine = visStartInLine + hw.colByteLen;
+                keel::usize curCol = visStartInLine;
 
                 for (const TextSpan& sp : syntaxSpans) {
                     const keel::usize spStart = sp.startCol;
                     const keel::usize spEnd = sp.startCol + sp.length;
-                    if (spEnd <= subStartCol) continue;
-                    if (spStart >= subEndCol) break;
+                    if (spEnd <= visStartInLine) continue;
+                    if (spStart >= visEndInLine) break;
 
-                    const keel::usize clipStart = keel::max(spStart, subStartCol);
-                    const keel::usize clipEnd = keel::min(spEnd, subEndCol);
+                    const keel::usize clipStart = keel::max(spStart, visStartInLine);
+                    const keel::usize clipEnd = keel::min(spEnd, visEndInLine);
 
                     if (clipStart > curCol) {
                         drawPiece(fullLineStr.substr(curCol, clipStart - curCol), synPal.identifier);
@@ -589,17 +636,18 @@ void detail::TextArea::Render(
                         curCol = clipEnd;
                     }
                 }
-                if (curCol < subEndCol) {
-                    drawPiece(fullLineStr.substr(curCol, subEndCol - curCol), synPal.identifier);
+                if (curCol < visEndInLine) {
+                    drawPiece(fullLineStr.substr(curCol, visEndInLine - curCol), synPal.identifier);
                 }
             } else {
                 const Color textCol = disabled ? pal.textDisabled : editorTextPrimary;
-                drawPiece(subLineStr, textCol);
+                drawPiece(visSlice, textCol);
             }
         }
 
-        // Visible EOL return marker (â†µ) when showWhitespace is enabled and this is the end of the logical line
-        if (opts.showWhitespace && (vl.startCol + vl.length == ll.length) && (vl.logicalLine + 1 < logicalLines.size())) {
+        // Visible EOL return marker (↵)
+        const bool winAtLineEnd = (vl.startCol + hw.colByteStart + hw.colByteLen >= lr.contentBytes);
+        if (opts.showWhitespace && winAtLineEnd && (vl.logicalLine + 1u < totalLogicalLines)) {
             const keel::f32 eolX = curX + L.metrics.spaceAdvance * 0.25f;
             const keel::f32 eolW = L.metrics.spaceAdvance * 0.62f;
             const keel::f32 eolTop = wsCenterY - L.lineHeight * 0.18f;
@@ -614,7 +662,7 @@ void detail::TextArea::Render(
             }
         }
 
-        // Folded block summary pill "[...]" at end of line
+        // Folded block summary pill "[...]"
         const bool isFoldedStart = opts.codeFolding && vl.isFirstSubLine && IsLineFoldedStart(foldedLines, vl.logicalLine);
         if (isFoldedStart) {
             const keel::f32 pillX = curX + L.metrics.spaceAdvance * 0.8f;
@@ -627,16 +675,16 @@ void detail::TextArea::Render(
             curX = pillRect.Right();
         }
 
-        // Inline Debugger Variable Readouts (e.g. "N = 1024 | peak = +18.4 dB")
-        // Attached to the end of the logical line (last visual sub-line, or folded block header)
-        const bool isLastSubLine = (vl.startCol + vl.length >= ll.length) || isFoldedStart;
-        if (isLastSubLine && !opts.inlineValues.empty()) {
+        // Inline Debugger Variable Readouts
+        const bool isLastSubLine = (vl.startCol + vl.length >= lr.contentBytes) || isFoldedStart;
+        if (isLastSubLine && winAtLineEnd && !opts.inlineValues.empty() && lr.contentBytes <= kMaxSyntaxLineBytes) {
             const keel::StringRef cmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
                 ? opts.syntax->lineComment
                 : "//";
+            const keel::StringRef fullLineStr = source.ReadSliceRef(lr.startByte, lr.contentBytes, fullLineScratch);
             if (!ExtractCodeWithoutLineComment(fullLineStr, cmtPrefix).empty()) {
                 for (const CodeInlineValue& iv : opts.inlineValues) {
-                    if (iv.line == vl.logicalLine + 1 && !iv.text.empty()) {
+                    if (iv.line == vl.logicalLine + 1u && !iv.text.empty()) {
                         const keel::f32 ivFs = L.fontSize * 0.88f;
                         const keel::f32 ivW = MeasureChunkNoTabs(&canvas, iv.text, ivFs, FontStyle::Monospace) + 12.0f;
                         keel::f32 ivX = curX + L.metrics.spaceAdvance * 2.2f;
@@ -663,17 +711,20 @@ void detail::TextArea::Render(
         // Diagnostic wavy underline squiggles (~~~)
         if (!opts.diagnostics.empty()) {
             for (const CodeDiagnostic& diag : opts.diagnostics) {
-                if (diag.line != vl.logicalLine + 1) continue;
+                if (diag.line != vl.logicalLine + 1u) continue;
                 keel::usize dStart = diag.startCol;
-                keel::usize dEnd = (diag.endCol > diag.startCol) ? keel::min<keel::usize>(diag.endCol, fullLineStr.size()) : fullLineStr.size();
-                if (dStart == 0 && diag.endCol == 0) {
-                    while (dStart < fullLineStr.size() && (fullLineStr[dStart] == ' ' || fullLineStr[dStart] == '\t')) ++dStart;
+                keel::usize dEnd = (diag.endCol > diag.startCol) ? keel::min<keel::usize>(diag.endCol, lr.contentBytes) : lr.contentBytes;
+                if (dStart == 0u && diag.endCol == 0u && lr.contentBytes > 0u) {
+                    const keel::StringRef lead = source.ReadSliceRef(lr.startByte, keel::min<keel::usize>(lr.contentBytes, 256u), leadScratch);
+                    while (dStart < lead.size() && (lead[dStart] == ' ' || lead[dStart] == '\t')) ++dStart;
                 }
-                if (dEnd <= vl.startCol || dStart >= vl.startCol + vl.length) continue;
-                const keel::usize s0 = keel::max(dStart, vl.startCol) - vl.startCol;
-                const keel::usize s1 = keel::min(dEnd, vl.startCol + vl.length) - vl.startCol;
-                const keel::f32 x0 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle, opts.tabSize);
-                const keel::f32 x1 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s1), L.fontSize, textStyle, opts.tabSize);
+                const keel::usize winLineStart = vl.startCol + hw.colByteStart;
+                const keel::usize winLineEnd = winLineStart + hw.colByteLen;
+                if (dEnd <= winLineStart || dStart >= winLineEnd) continue;
+                const keel::usize s0 = keel::max(dStart, winLineStart) - vl.startCol;
+                const keel::usize s1 = keel::min(dEnd, winLineEnd) - vl.startCol;
+                const keel::f32 x0 = colInSubToScreenX(s0);
+                const keel::f32 x1 = colInSubToScreenX(s1);
                 const Color sqCol = (diag.severity == DiagnosticSeverity::Error) ? Color(239, 68, 68, 235)
                                   : (diag.severity == DiagnosticSeverity::Warning) ? Color(245, 158, 11, 235)
                                   : Color(56, 189, 248, 220);
@@ -681,29 +732,25 @@ void detail::TextArea::Render(
             }
         }
 
-        // Render active cursor caret (when focus is in the code editor)
+        // Active cursor caret
         if (focused && cursorVisible && !disabled && vIdx == activeVisRow && (!extData || extData->overlayFocus == 0)) {
             const keel::usize colInSub = (safeCursor >= vl.startOffset)
                 ? keel::min(safeCursor - vl.startOffset, vl.length)
-                : 0;
-            const keel::StringRef beforeCursor = text.substr(vl.startOffset, colInSub);
-            const keel::f32 caretX = startX + MeasureSegmentWidth(&canvas, beforeCursor, L.fontSize, textStyle, opts.tabSize);
+                : 0u;
+            const keel::f32 caretX = colInSubToScreenX(colInSub);
             if (caretX >= textViewport.x - 2.0f && caretX <= textViewport.Right() + 2.0f) {
                 const keel::f32 caretH = keel::max(L.glyphBoxH, L.lineHeight - 2.0f);
                 const keel::f32 caretY = lineY + (L.lineHeight - caretH) * 0.5f;
                 const keel::f32 reqCaretW = extData ? extData->cursorWidth : 1.8f;
                 const keel::f32 caretW = keel::max(1.0f, reqCaretW);
-                canvas.DrawRect(
-                    Rect(caretX, caretY, caretW, caretH),
-                    editorCaret
-                );
+                canvas.DrawRect(Rect(caretX, caretY, caretW, caretH), editorCaret);
             }
         }
 
         canvas.PopClip();
     }
 
-    // 6. Render Right-Hand Code Minimap
+    // 6. Right-hand Code Minimap (strictly reads <= 88 bytes per visible micro-line!)
     if (L.hasMinimap && L.minimapRect.w > 0.0f) {
         const Color miniBg = (synPal.gutterBg.a > 0)
             ? synPal.gutterBg.WithAlphaF(0.92f)
@@ -719,14 +766,13 @@ void detail::TextArea::Render(
         const keel::f32 microStep = 3.0f;
         const keel::f32 microH = 1.6f;
         const keel::usize maxMiniLines = keel::as<keel::usize>(keel::max(1.0f, L.minimapRect.h / microStep));
-        const keel::usize startVis = (visualLines.size() > maxMiniLines && L.maxScrollY > 0.0f)
-            ? keel::as<keel::usize>((clampedScrollY / L.maxScrollY) * keel::as<keel::f32>(visualLines.size() - maxMiniLines))
-            : 0;
-        const keel::usize endVis = keel::min(visualLines.size(), startVis + maxMiniLines);
+        const keel::usize startVis = (totalVisLines > maxMiniLines && L.maxScrollY > 0.0)
+            ? keel::as<keel::usize>((clampedScrollY / L.maxScrollY) * keel::as<keel::f64>(totalVisLines - maxMiniLines))
+            : 0u;
+        const keel::usize endVis = keel::min(totalVisLines, startVis + maxMiniLines);
 
-        // Draw viewport slider box on minimap
-        const keel::f32 visCountF = keel::as<keel::f32>(keel::max<keel::usize>(1, lastVisLine - firstVisLine));
-        const keel::f32 vpTopY = L.minimapRect.y + keel::as<keel::f32>(firstVisLine > startVis ? firstVisLine - startVis : 0) * microStep;
+        const keel::f32 visCountF = keel::as<keel::f32>(keel::max<keel::usize>(1u, lastVisLine - firstVisLine));
+        const keel::f32 vpTopY = L.minimapRect.y + keel::as<keel::f32>(firstVisLine > startVis ? firstVisLine - startVis : 0u) * microStep;
         const keel::f32 vpH = keel::min(L.minimapRect.Bottom() - vpTopY, visCountF * microStep);
         const bool miniActive = extData && (extData->minimapHovered || extData->minimapDragging);
         canvas.DrawRect(
@@ -735,27 +781,25 @@ void detail::TextArea::Render(
         );
 
         const keel::f32 charScale = (L.minimapRect.w - 8.0f) / 90.0f;
+        keel::String miniScratch;
         for (keel::usize mv = startVis; mv < endVis; ++mv) {
-            const VisualLine& vl = visualLines[mv];
+            const VisualLine vl = proj.VisualRowAt(mv);
             const keel::f32 my = L.minimapRect.y + keel::as<keel::f32>(mv - startVis) * microStep + 2.0f;
-            const keel::StringRef ls = text.substr(vl.startOffset, vl.length);
+            const keel::StringRef ls = source.ReadSliceRef(vl.startOffset, keel::min<keel::usize>(vl.length, 88u), miniScratch);
 
-            // Execution line marker on minimap
-            if (opts.executionLine == vl.logicalLine + 1) {
+            if (opts.executionLine == vl.logicalLine + 1u) {
                 canvas.DrawRect(Rect(L.minimapRect.x + 1.0f, my - 0.5f, L.minimapRect.w - 2.0f, microStep), Color(251, 191, 36, 160));
             }
-            // Breakpoint dot on minimap
-            if (ContainsSizeT(breakpoints, vl.logicalLine + 1)) {
+            if (ContainsSizeT(breakpoints, vl.logicalLine + 1u)) {
                 canvas.DrawRect(Rect(L.minimapRect.x + 2.0f, my, 3.5f, microStep), Color(239, 68, 68, 230));
             }
 
-            // Draw micro-tokens
-            keel::usize cIdx = 0;
-            while (cIdx < ls.size() && cIdx < 88) {
+            keel::usize cIdx = 0u;
+            while (cIdx < ls.size()) {
                 while (cIdx < ls.size() && (ls[cIdx] == ' ' || ls[cIdx] == '\t')) ++cIdx;
-                if (cIdx >= ls.size() || cIdx >= 88) break;
+                if (cIdx >= ls.size()) break;
                 const keel::usize tokStart = cIdx;
-                while (cIdx < ls.size() && ls[cIdx] != ' ' && ls[cIdx] != '\t' && cIdx < 88) ++cIdx;
+                while (cIdx < ls.size() && ls[cIdx] != ' ' && ls[cIdx] != '\t') ++cIdx;
                 const keel::StringRef tok = ls.substr(tokStart, cIdx - tokStart);
                 Color mCol = synPal.identifier.WithAlphaF(0.55f);
                 if (useConfigSyntax) {
@@ -776,7 +820,7 @@ void detail::TextArea::Render(
         }
     }
 
-    // 7. Render vertical & horizontal scrollbars (with overview ruler markers for search/breakpoints/diagnostics)
+    // 7. Vertical & horizontal scrollbars + BUCKETED overview ruler (<= 512 rects, never 100k DrawRects!)
     if (L.needVScroll && L.vTrackRect.h > 0.0f) {
         const bool vHov = extData && extData->vThumbHovered;
         const bool vDrag = extData && extData->vThumbDragging;
@@ -797,21 +841,27 @@ void detail::TextArea::Render(
         vp.cornerRadius = sm.cornerRadius;
         theme.Painter().DrawScrollbar(canvas, theme, vp);
 
-        // Overview ruler ticks on vertical scrollbar track
-        const keel::f32 totalLinesF = keel::as<keel::f32>(keel::max<keel::usize>(1, logicalLines.size()));
-        for (const SearchMatch& m : searchMatches) {
-            const keel::f32 ty = L.vTrackRect.y + (keel::as<keel::f32>(m.logicalLine) / totalLinesF) * L.vTrackRect.h;
-            canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, 2.0f), Color(245, 158, 11, 210));
+        if (!searchRulerBuckets.empty()) {
+            const keel::f64 bCountD = keel::as<keel::f64>(searchRulerBuckets.size());
+            const keel::f64 trackH = keel::as<keel::f64>(L.vTrackRect.h);
+            for (keel::usize bi = 0u; bi < searchRulerBuckets.size(); ++bi) {
+                if (searchRulerBuckets[bi] != 0u) {
+                    const keel::f32 ty = L.vTrackRect.y + keel::as<keel::f32>((keel::as<keel::f64>(bi) / bCountD) * trackH);
+                    canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, 2.0f), Color(245, 158, 11, 210));
+                }
+            }
         }
+
+        const keel::f64 totalLinesD = keel::as<keel::f64>(keel::max<keel::usize>(1u, totalLogicalLines));
         for (keel::usize bp : breakpoints) {
-            if (bp >= 1 && bp <= logicalLines.size()) {
-                const keel::f32 ty = L.vTrackRect.y + (keel::as<keel::f32>(bp - 1) / totalLinesF) * L.vTrackRect.h;
+            if (bp >= 1u && bp <= totalLogicalLines) {
+                const keel::f32 ty = L.vTrackRect.y + keel::as<keel::f32>((keel::as<keel::f64>(bp - 1u) / totalLinesD) * keel::as<keel::f64>(L.vTrackRect.h));
                 canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, 2.5f), Color(239, 68, 68, 230));
             }
         }
         for (const CodeDiagnostic& d : opts.diagnostics) {
-            if (d.line >= 1 && d.line <= logicalLines.size()) {
-                const keel::f32 ty = L.vTrackRect.y + (keel::as<keel::f32>(d.line - 1) / totalLinesF) * L.vTrackRect.h;
+            if (d.line >= 1u && d.line <= totalLogicalLines) {
+                const keel::f32 ty = L.vTrackRect.y + keel::as<keel::f32>((keel::as<keel::f64>(d.line - 1u) / totalLinesD) * keel::as<keel::f64>(L.vTrackRect.h));
                 const Color dc = (d.severity == DiagnosticSeverity::Error) ? Color(239, 68, 68, 230) : Color(245, 158, 11, 220);
                 canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, 2.5f), dc);
             }
@@ -855,7 +905,7 @@ void detail::TextArea::Render(
     const keel::f32 btnRad = tbCm.cornerRadius;
     const keel::f32 overlayRad = (btnRad > 0.01f) ? (btnRad + 2.0f) : 0.0f;
 
-    // 8. Render Debug Hover DataTip Card when hovering over a variable in opts.debugVariables
+    // 8. Debug Hover DataTip Card
     if (extData && !extData->hoveredWord.empty() && hoveredWordScreenRect.w > 0.0f && !opts.debugVariables.empty()) {
         for (const CodeDebugVar& dv : opts.debugVariables) {
             if (dv.name == extData->hoveredWord) {
@@ -890,7 +940,7 @@ void detail::TextArea::Render(
         }
     }
 
-    // 9. Render Floating Debug Toolbar (Continue, Step Over, Step Into, Step Out, Restart, Stop) — via IStylePainter & Button::Render
+    // 9. Floating Debug Toolbar
     if (opts.showDebugToolbar && L.debugToolbar.panelRect.w > 0.0f) {
         const auto& DT = L.debugToolbar;
         const bool gripDragging = extData && extData->debugToolbarDragging;
@@ -907,7 +957,6 @@ void detail::TextArea::Render(
             .elevation = Elevation::Sm
         });
 
-        // Draw VS Code-style 6-dot drag grip on the left side of the floating debug toolbar
         const keel::f32 gripSlotW = DT.btnRects[0].x - DT.panelRect.x;
         const keel::f32 dotSz = keel::max(2.0f, tbCm.iconSize * 0.14f);
         const keel::f32 dotRad = (btnRad > 0.01f) ? (dotSz * 0.5f) : 0.0f;
@@ -922,7 +971,6 @@ void detail::TextArea::Render(
             canvas.DrawRoundRect(Rect(gripX + dotStepX, dy, dotSz, dotSz), dotRad, gripCol);
         }
 
-        // Draw vertical divider between Step Out (btn 3) and Restart (btn 4) via Toolbar::RenderSeparator
         const Rect sepRect(
             DT.btnRects[3].Right(),
             DT.panelRect.y,
@@ -932,20 +980,12 @@ void detail::TextArea::Render(
         detail::Toolbar::RenderSeparator(canvas, sepRect, pal.borderSubtle, theme);
 
         static constexpr keel::StaticArray<IconId, 6> kDbgIcons = {
-            IconId::DebugContinue, // Continue (F5)
-            IconId::StepOver,      // Step Over (F10)
-            IconId::StepInto,      // Step Into (F11)
-            IconId::StepOut,       // Step Out (Shift+F11)
-            IconId::Refresh,       // Restart
-            IconId::Stop           // Stop (Shift+F5)
+            IconId::DebugContinue, IconId::StepOver, IconId::StepInto,
+            IconId::StepOut, IconId::Refresh, IconId::Stop
         };
         const keel::StaticArray<Color, 6> dbgColors = {
-            Color(34, 197, 94),   // Continue (F5) - Emerald
-            Color(56, 189, 248),  // Step Over (F10) - Sky Blue
-            Color(56, 189, 248),  // Step Into (F11) - Sky Blue
-            Color(56, 189, 248),  // Step Out (Shift+F11) - Sky Blue
-            Color(34, 197, 94),   // Restart - Emerald/Green (VS Code style)
-            Color(239, 68, 68)    // Stop (Shift+F5) - Red
+            Color(34, 197, 94), Color(56, 189, 248), Color(56, 189, 248),
+            Color(56, 189, 248), Color(34, 197, 94), Color(239, 68, 68)
         };
         for (keel::i32 i = 0; i < 6; ++i) {
             const Rect br = DT.btnRects[keel::as<keel::usize>(i)];
@@ -962,7 +1002,7 @@ void detail::TextArea::Render(
         }
     }
 
-    // 10. Render Floating Find & Replace / Go to Line Overlay — via IStylePainter, FieldFrame & Button::Render
+    // 10. Floating Find & Replace / Go to Line Overlay
     if ((searchOpen || gotoOpen) && L.searchOverlay.panelRect.w > 0.0f && extData) {
         const auto& S = L.searchOverlay;
         theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
@@ -1018,7 +1058,6 @@ void detail::TextArea::Render(
                 }
             }
 
-            // Match Case ("Aa") square toggle button
             {
                 ButtonOptions caseOpts{};
                 caseOpts.text = "Aa";
@@ -1029,7 +1068,6 @@ void detail::TextArea::Render(
                 caseOpts.width = SizeMode::Stretch;
                 detail::Button::Render(canvas, S.caseBtnRect, caseOpts, tbSize, hovBtn == 1, false, disabled, theme, false);
             }
-            // Match Whole Word ("ab" with bottom bracket underline) square toggle button
             {
                 ButtonOptions wordOpts{};
                 wordOpts.text = "ab";
@@ -1055,15 +1093,16 @@ void detail::TextArea::Render(
                 std::snprintf(cntBuf, sizeof(cntBuf), "0/0");
             } else if (searchMatches.empty()) {
                 std::snprintf(cntBuf, sizeof(cntBuf), "0 res");
+            } else if (searchCapped) {
+                std::snprintf(cntBuf, sizeof(cntBuf), "%zu/%zu+", extData->activeMatchIdx + 1u, searchMatches.size());
             } else {
-                std::snprintf(cntBuf, sizeof(cntBuf), "%zu/%zu", extData->activeMatchIdx + 1, searchMatches.size());
+                std::snprintf(cntBuf, sizeof(cntBuf), "%zu/%zu", extData->activeMatchIdx + 1u, searchMatches.size());
             }
             const Color cntCol = (!extData->searchQuery.empty() && searchMatches.empty())
                 ? theme.GetTextColor(UiVariant::Danger)
                 : pal.textSecondary;
             canvas.DrawTextBox(cntBuf, S.countRect, badgeFs, cntCol, 0.5f, 0.5f);
 
-            // Previous Match (ArrowUp), Next Match (ArrowDown), Close (Close)
             renderSquareToolBtn(S.prevBtnRect, IconId::ArrowUp, false, 3);
             renderSquareToolBtn(S.nextBtnRect, IconId::ArrowDown, false, 4);
             renderSquareToolBtn(S.closeBtnRect, IconId::Close, false, 5);
@@ -1083,7 +1122,6 @@ void detail::TextArea::Render(
                         canvas.DrawRect(Rect(cx, S.replaceInputRect.y + caretPad, 1.5f, S.replaceInputRect.h - caretPad * 2.0f), pal.caret);
                     }
                 }
-                // Replace One & Replace All buttons via Button::Render
                 {
                     ButtonOptions rep1Opts{};
                     rep1Opts.text = "1";
@@ -1107,7 +1145,7 @@ void detail::TextArea::Render(
             const Rect gTextRect(S.findInputRect.x + inputPadX, S.findInputRect.y, S.findInputRect.w - inputPadX * 2.0f, S.findInputRect.h);
             if (extData->gotoQuery.empty()) {
                 char ph[48]{};
-                std::snprintf(ph, sizeof(ph), "Go to Line (1..%zu)...", logicalLines.size());
+                std::snprintf(ph, sizeof(ph), "Go to Line (1..%zu)...", totalLogicalLines);
                 canvas.DrawTextBox(ph, gTextRect, badgeFs, pal.textMuted, 0.0f, 0.5f);
             } else {
                 canvas.DrawTextBox(extData->gotoQuery, gTextRect, badgeFs, pal.textPrimary, 0.0f, 0.5f);
@@ -1116,7 +1154,7 @@ void detail::TextArea::Render(
         }
     }
 
-    // 11. Render top-right quick overlays: Copy button & Zoom % reset button — via UiSize & Button::Render
+    // 11. Top-right quick overlays: Copy & Zoom %
     if (L.copyBtnRect.w > 0.0f) {
         const bool copyHov = extData && extData->copyHovered;
         const bool copied = extData && extData->copyFeedbackActive;
@@ -1141,7 +1179,7 @@ void detail::TextArea::Render(
 
     canvas.PopClip();
 
-    // 12. Render IDE Bottom Status Bar
+    // 12. IDE Bottom Status Bar
     if (L.statusBarHeight > 0.0f && L.statusBarRect.w > 0.0f) {
         canvas.PushClip(L.statusBarRect);
         const Color sbBg = (synPal.gutterBg.a > 0)
@@ -1156,13 +1194,11 @@ void detail::TextArea::Render(
         );
 
         const keel::f32 sbFs = theme.GetFontSize(TextRole::LabelSmall, size);
-        const keel::usize curLine1 = activeLogicalLine + 1;
-        const keel::usize curCol1 = (safeCursor >= logicalLines[activeLogicalLine].startOffset)
-            ? (safeCursor - logicalLines[activeLogicalLine].startOffset + 1)
-            : 1;
+        const keel::usize curLine1 = activeLogicalLine + 1u;
+        const keel::usize curCol1 = activeLc.colBytes + 1u;
 
-        keel::usize errCnt = 0;
-        keel::usize warnCnt = 0;
+        keel::usize errCnt = 0u;
+        keel::usize warnCnt = 0u;
         for (const CodeDiagnostic& d : opts.diagnostics) {
             if (d.severity == DiagnosticSeverity::Error) ++errCnt;
             else if (d.severity == DiagnosticSeverity::Warning) ++warnCnt;
@@ -1172,8 +1208,7 @@ void detail::TextArea::Render(
         const keel::f32 sbCy = L.statusBarRect.y + L.statusBarRect.h * 0.5f;
         const keel::f32 sbIcoSz = 11.0f;
 
-        // Debugger status indicator icon + label
-        if (opts.executionLine > 0) {
+        if (opts.executionLine > 0u) {
             const Color pauseCol(251, 191, 36);
             Icon::Pause().Draw(canvas, Rect(sbX, sbCy - sbIcoSz * 0.5f, sbIcoSz, sbIcoSz), pauseCol);
             sbX += sbIcoSz + 4.0f;
@@ -1184,8 +1219,7 @@ void detail::TextArea::Render(
             sbX += dw + 8.0f;
         }
 
-        // Error & Warning icons + counts
-        const Color errCol = (errCnt > 0) ? Color(239, 68, 68) : editorTextSecondary;
+        const Color errCol = (errCnt > 0u) ? Color(239, 68, 68) : editorTextSecondary;
         Icon::Error().Draw(canvas, Rect(sbX, sbCy - sbIcoSz * 0.5f, sbIcoSz, sbIcoSz), errCol);
         sbX += sbIcoSz + 3.0f;
         char errBuf[16]{};
@@ -1194,7 +1228,7 @@ void detail::TextArea::Render(
         canvas.DrawTextBox(errBuf, Rect(sbX, L.statusBarRect.y, ew + 4.0f, L.statusBarRect.h), sbFs, errCol, 0.0f, 0.5f);
         sbX += ew + 8.0f;
 
-        const Color warnCol = (warnCnt > 0) ? Color(245, 158, 11) : editorTextSecondary;
+        const Color warnCol = (warnCnt > 0u) ? Color(245, 158, 11) : editorTextSecondary;
         Icon::Warning().Draw(canvas, Rect(sbX, sbCy - sbIcoSz * 0.5f, sbIcoSz, sbIcoSz), warnCol);
         sbX += sbIcoSz + 3.0f;
         char warnBuf[16]{};
@@ -1206,10 +1240,10 @@ void detail::TextArea::Render(
         char leftStatus[128]{};
         if (hasSelection) {
             std::snprintf(leftStatus, sizeof(leftStatus), "|  Ln %zu, Col %zu (%zu sel)  |  %zu lines  |  %zu BPs",
-                          curLine1, curCol1, selEnd - selStart, logicalLines.size(), breakpoints.size());
+                          curLine1, curCol1, selEnd - selStart, totalLogicalLines, breakpoints.size());
         } else {
             std::snprintf(leftStatus, sizeof(leftStatus), "|  Ln %zu, Col %zu  |  %zu lines  |  %zu BPs",
-                          curLine1, curCol1, logicalLines.size(), breakpoints.size());
+                          curLine1, curCol1, totalLogicalLines, breakpoints.size());
         }
         canvas.DrawTextBox(
             leftStatus,
@@ -1224,7 +1258,8 @@ void detail::TextArea::Render(
             ? opts.syntax->languageName
             : "Plain Text";
         char rightStatus[96]{};
-        std::snprintf(rightStatus, sizeof(rightStatus), "Spaces: 4  |  UTF-8  |  %d%%  |  %.*s",
+        std::snprintf(rightStatus, sizeof(rightStatus), "Spaces: %u  |  UTF-8  |  %d%%  |  %.*s",
+                      keel::as<keel::u32>(keel::clamp<keel::i32>(opts.tabSize, 1, 16)),
                       keel::round_i32(effZoom * 100.0f),
                       keel::as<keel::i32>(langName.size()), langName.data());
         canvas.DrawTextBox(

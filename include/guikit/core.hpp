@@ -28,6 +28,7 @@
 #include "guikit/core/scrollbar.hpp"
 #include "guikit/core/shell_controls.hpp"
 #include "guikit/core/solver.hpp"
+#include "guikit/core/text_document.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/core/types.hpp"
 
