@@ -42,13 +42,6 @@ ControlSpec EffectivePaginationControl(const PaginationOptions& opts, UiSize siz
     );
 }
 
-Color ResolveContrastingTextOnFill(Color fill, const ThemePalette& pal) noexcept {
-    const keel::f32 lum = (0.299f * keel::as<keel::f32>(fill.r) +
-                       0.587f * keel::as<keel::f32>(fill.g) +
-                       0.114f * keel::as<keel::f32>(fill.b)) / 255.0f;
-    return (lum > 0.62f) ? Color(15, 23, 42, 255) : pal.controlKnobActive;
-}
-
 /// Canonical fixed-slot pagination algorithm (2 * siblingCount + 5 page/ellipsis slots).
 /// Guarantees a constant token count across all pages so the pagination bar never shifts horizontally.
 void BuildPaginationTokens(
@@ -542,7 +535,7 @@ void detail::Pagination::Render(
             pillFill = tokDisabled ? accentColor.WithAlphaF(theme.disabledOpacity) : accentColor;
             pillStroke = (focused && !tokDisabled) ? pal.focusRing : Color::Transparent();
             pillStrokeW = (focused && !tokDisabled) ? 1.5f : 0.0f;
-            fgColor = tokDisabled ? pal.textDisabled : ResolveContrastingTextOnFill(pillFill, pal);
+            fgColor = tokDisabled ? pal.textDisabled : theme.ResolveOnFillInk(pillFill, Color::Transparent(), 4.5f, /*gradientFill=*/true);
             theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
                 .rect = tr,
                 .radius = pillRadius,

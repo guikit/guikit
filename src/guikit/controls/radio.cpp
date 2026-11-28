@@ -171,7 +171,9 @@ void detail::Radio::Render(
             ringFill = (hovered && !disabled) ? v.bgHover : v.bg;
             ringStroke = (v.borderWidth > 0.0f) ? v.border : ringFill;
             strokeWidth = (v.borderWidth > 0.0f) ? v.borderWidth : 1.5f;
-            dotColor = (v.bg.a == 0u || theme.fillStyle == FillStyle::Soft) ? v.text : pal.controlKnobActive;
+            dotColor = (v.bg.a == 0u || theme.fillStyle == FillStyle::Soft)
+                ? v.text
+                : theme.ResolveOnFillInk(ringFill, pal.controlKnobActive, 3.0f);
         } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             const StateColor resolved = theme.ResolveStateColor(opts.color);
             ringFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
@@ -183,7 +185,9 @@ void detail::Radio::Render(
             const Color solidAccent = theme.ResolveSemanticAccent(opts.color, UiVariant::Primary, hovered && !disabled, pressed && !disabled, false);
             ringStroke = (ringFill.a == 0u || theme.fillStyle == FillStyle::Soft) ? solidAccent : ringFill;
             strokeWidth = 1.5f;
-            dotColor = (ringFill.a == 0u || theme.fillStyle == FillStyle::Soft) ? solidAccent : pal.controlKnobActive;
+            dotColor = (ringFill.a == 0u || theme.fillStyle == FillStyle::Soft)
+                ? theme.EnsureReadableInk(solidAccent, (ringFill.a == 0u) ? pal.surface : ringFill)
+                : theme.ResolveOnFillInk(ringFill, pal.controlKnobActive, 3.0f);
         }
     } else {
         ringFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;

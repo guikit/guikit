@@ -175,7 +175,9 @@ void detail::Checkbox::Render(
             boxFill = (hovered && !disabled) ? v.bgHover : v.bg;
             boxStroke = (v.borderWidth > 0.0f) ? v.border : boxFill;
             strokeWidth = (v.borderWidth > 0.0f) ? v.borderWidth : 1.5f;
-            markColor = (v.bg.a == 0u || theme.fillStyle == FillStyle::Soft) ? v.text : pal.controlKnobActive;
+            markColor = (v.bg.a == 0u || theme.fillStyle == FillStyle::Soft)
+                ? v.text
+                : theme.ResolveOnFillInk(boxFill, pal.controlKnobActive, 3.0f);
         } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             const StateColor resolved = theme.ResolveStateColor(opts.color);
             boxFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
@@ -187,7 +189,9 @@ void detail::Checkbox::Render(
             const Color solidAccent = theme.ResolveSemanticAccent(opts.color, UiVariant::Primary, hovered && !disabled, pressed && !disabled, false);
             boxStroke = (boxFill.a == 0u || theme.fillStyle == FillStyle::Soft) ? solidAccent : boxFill;
             strokeWidth = 1.5f;
-            markColor = (boxFill.a == 0u || theme.fillStyle == FillStyle::Soft) ? solidAccent : pal.controlKnobActive;
+            markColor = (boxFill.a == 0u || theme.fillStyle == FillStyle::Soft)
+                ? theme.EnsureReadableInk(solidAccent, (boxFill.a == 0u) ? pal.surface : boxFill)
+                : theme.ResolveOnFillInk(boxFill, pal.controlKnobActive, 3.0f);
         }
     } else {
         boxFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;

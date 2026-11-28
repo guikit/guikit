@@ -209,6 +209,49 @@ struct UiTheme {
         return Color::BestTextColor(surfaceRef, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF));
     }
 
+    /// Returns a high-contrast foreground/marker color over `fill` (compositing translucent fills over
+    /// `palette.surface` and evaluating both stops when `gradientFill` is active in `FillStyle::Gradient`).
+    /// Prefers `preferred` when it achieves at least `minContrast` (e.g. 3.0 for UI markers, 4.5 for text),
+    /// otherwise selects whichever of dark ink (`#0F172A`) or white (`#FFFFFF`) maximizes worst-case contrast.
+    [[nodiscard]] Color ResolveOnFillInk(
+        Color fill,
+        Color preferred = Color::Transparent(),
+        keel::f32 minContrast = 4.5f,
+        bool gradientFill = false
+    ) const noexcept {
+        const Color surfaceBg = palette.surface.WithAlpha(255u);
+        const Color effFill = (fill.a < 255u)
+            ? Color::Lerp(surfaceBg, fill.WithAlpha(255u), keel::as<keel::f32>(fill.a) / 255.0f).WithAlpha(255u)
+            : fill;
+
+        const Color darkInk = Color::Hex(0x0F172AFF);
+        const Color lightInk = Color::Hex(0xFFFFFFFF);
+
+        if (gradientFill && fillStyle == FillStyle::Gradient) {
+            const Gradient g = DeriveAccentGradient(effFill, 90.0f);
+            const Color s0 = g.stops[0].color.WithAlpha(255u);
+            const Color s1 = g.stops[1].color.WithAlpha(255u);
+            auto worstContrast = [&](Color ink) noexcept -> keel::f32 {
+                return keel::min(Color::ContrastRatio(ink, s0), Color::ContrastRatio(ink, s1));
+            };
+            if (preferred.a > 0u) {
+                const Color prefSolid = preferred.WithAlpha(255u);
+                if (worstContrast(prefSolid) >= minContrast) {
+                    return prefSolid;
+                }
+            }
+            return (worstContrast(lightInk) >= worstContrast(darkInk)) ? lightInk : darkInk;
+        }
+
+        if (preferred.a > 0u) {
+            const Color prefSolid = preferred.WithAlpha(255u);
+            if (Color::ContrastRatio(prefSolid, effFill) >= minContrast) {
+                return prefSolid;
+            }
+        }
+        return Color::BestTextColor(effFill, darkInk, lightInk);
+    }
+
     [[nodiscard]] constexpr Color GetTextColor(UiVariant variant) const noexcept {
         switch (variant) {
             case UiVariant::Default:   return palette.textPrimary;

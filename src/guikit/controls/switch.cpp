@@ -240,7 +240,7 @@ void detail::Switch::Render(
         trackFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;
         trackStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
         strokeWidth = 1.0f;
-        knobFill = pal.controlKnobActive;
+        knobFill = theme.ResolveOnFillInk(trackFill, pal.controlKnob, 2.0f);
     } else if (checked) {
         const VariantColors& v = theme.GetVariant(UiVariant::Primary);
         if (!opts.color.HasAny()) {
@@ -250,13 +250,17 @@ void detail::Switch::Render(
                 : ((hovered && !disabled) ? v.bgHover : v.bg);
             trackStroke = (v.borderWidth > 0.0f) ? v.border : Color::Transparent();
             strokeWidth = v.borderWidth;
-            knobFill = isOutlineTrack ? pal.accentText : ((v.bg.a > 0u && theme.fillStyle == FillStyle::Soft) ? v.text : pal.controlKnobActive);
+            knobFill = isOutlineTrack
+                ? theme.ResolveOnFillInk(trackFill, pal.accentText, 3.0f)
+                : ((theme.fillStyle == FillStyle::Soft)
+                    ? v.text
+                    : theme.ResolveOnFillInk(trackFill, pal.controlKnobActive, 3.0f, /*gradientFill=*/true));
         } else if (opts.color.token == StateColorToken::Ghost || (opts.color.normal.has_value() && opts.color.normal->a == 0)) {
             const StateColor resolved = theme.ResolveStateColor(opts.color);
             trackFill = (hovered && !disabled) ? resolved.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
             trackStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
             strokeWidth = 1.0f;
-            knobFill = pal.controlKnobActive;
+            knobFill = pal.textPrimary;
         } else {
             const Color resolved = theme.ResolveColor(opts.color, hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
             const Color solidAccent = theme.ResolveSemanticAccent(opts.color, UiVariant::Primary, hovered && !disabled, pressed && !disabled, false);
@@ -265,8 +269,10 @@ void detail::Switch::Render(
             trackStroke = Color::Transparent();
             strokeWidth = 0.0f;
             knobFill = isOutlineTrack
-                ? Color::BestTextColor(solidAccent, Color::Hex(0x0F172AFF), Color::Hex(0xFFFFFFFF))
-                : ((theme.fillStyle == FillStyle::Soft) ? solidAccent : pal.controlKnobActive);
+                ? theme.ResolveOnFillInk(solidAccent, pal.controlKnobActive, 3.0f)
+                : ((theme.fillStyle == FillStyle::Soft)
+                    ? theme.EnsureReadableInk(solidAccent, trackFill)
+                    : theme.ResolveOnFillInk(trackFill, pal.controlKnobActive, 3.0f, /*gradientFill=*/true));
         }
     } else {
         trackFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;

@@ -3104,6 +3104,167 @@ void TestStylePainterChromeDispatchAndPolish() {
         const UiTheme light = UiTheme::Light();
         const Color lightInk = light.EnsureReadableInk(light.GetSemanticAccent(UiVariant::Warning), light.palette.surface);
         CHECK(Color::ContrastRatio(lightInk, light.palette.surface) >= 4.5f);
+
+        // 5b. Full 13-preset x 4-FillStyle x 5-semantic-variant contrast matrix for Switch, Checkbox, Radio, Segmented, Pagination
+        struct ContrastSpyCanvas final : public NullCanvas {
+            struct RoundRectDraw { Rect rect{}; Color fill{}; bool isGrad{false}; Color grad0{}; Color grad1{}; };
+            struct LineDraw { Color color{}; };
+            struct TextDraw { keel::String text{}; Rect rect{}; Color color{}; };
+            keel::Array<RoundRectDraw> roundRects{};
+            keel::Array<LineDraw> lines{};
+            keel::Array<TextDraw> texts{};
+
+            void Reset() { roundRects.clear(); lines.clear(); texts.clear(); }
+            void DrawRoundRect(Rect rect, keel::f32 radius, Color fillColor, Color borderColor, keel::f32 borderWidth) override {
+                roundRects.push_back(RoundRectDraw{rect, fillColor, false, fillColor, fillColor});
+                NullCanvas::DrawRoundRect(rect, radius, fillColor, borderColor, borderWidth);
+            }
+            void DrawGradientRoundRect(Rect rect, keel::f32 radius, const Gradient& fillGrad, Color borderColor, keel::f32 borderWidth, const Gradient* strokeGradient) override {
+                const Color s0 = (fillGrad.stopCount > 0u) ? fillGrad.stops[0].color : Color::Transparent();
+                const Color s1 = (fillGrad.stopCount > 1u) ? fillGrad.stops[1].color : s0;
+                roundRects.push_back(RoundRectDraw{rect, s0, true, s0, s1});
+                NullCanvas::DrawGradientRoundRect(rect, radius, fillGrad, borderColor, borderWidth, strokeGradient);
+            }
+            void DrawLine(Vec2 p1, Vec2 p2, Color color, keel::f32 thickness) override {
+                lines.push_back(LineDraw{color});
+                NullCanvas::DrawLine(p1, p2, color, thickness);
+            }
+            void DrawTextBox(keel::StringRef text, Rect rect, keel::f32 fontSize, Color color, keel::f32 alignX, keel::f32 alignY) override {
+                texts.push_back(TextDraw{keel::String(text), rect, color});
+                NullCanvas::DrawTextBox(text, rect, fontSize, color, alignX, alignY);
+            }
+            void DrawTextBoxStyled(keel::StringRef text, Rect rect, keel::f32 fontSize, Color color, FontStyle style, keel::f32 alignX, keel::f32 alignY) override {
+                texts.push_back(TextDraw{keel::String(text), rect, color});
+                NullCanvas::DrawTextBoxStyled(text, rect, fontSize, color, style, alignX, alignY);
+            }
+        };
+
+        auto effectiveBg = [](Color fill, Color surface) noexcept -> Color {
+            const Color surf = surface.WithAlpha(255u);
+            if (fill.a == 0u) return surf;
+            if (fill.a < 255u) {
+                return Color::Lerp(surf, fill.WithAlpha(255u), keel::as<keel::f32>(fill.a) / 255.0f).WithAlpha(255u);
+            }
+            return fill;
+        };
+
+        CHECK(UiTheme::PulseLight().palette.controlKnobActive == Color::Hex(0xFFFFFFFF));
+        CHECK(UiTheme::Pulse().palette.controlKnobActive == Color::Hex(0xFFFFFFFF));
+        CHECK(UiTheme::Windows98().palette.controlKnobActive == Color::Hex(0xFFFFFFFF));
+
+        ContrastSpyCanvas cspy{};
+        cspy.Begin(400, 120, 1.0f);
+
+        const FillStyle kFills[] = {FillStyle::Solid, FillStyle::Soft, FillStyle::Outline, FillStyle::Gradient};
+        const StateColor kSemColors[] = {
+            StateColor{}, // default Primary
+            StateColor::Primary(),
+            StateColor::Success(),
+            StateColor::Warning(),
+            StateColor::Danger(),
+            StateColor::Info(),
+            StateColor::Ghost()
+        };
+
+        for (keel::usize pi = 0u; pi < kThemePresetCount; ++pi) {
+            const auto preset = keel::from_underlying<ThemePreset>(pi);
+            for (FillStyle fs : kFills) {
+                UiTheme t = UiTheme::FromPreset(preset);
+                if (t.chrome.frame == FrameTreatment::Bevel3D) {
+                    // Also validate Windows98 palette under Modern chrome where controlKnobActive/controlKnob are rendered directly
+                    t.SetChromeStyle(ChromeStyle::Modern);
+                }
+                t.SetFillStyle(fs);
+
+                for (const StateColor& sc : kSemColors) {
+                    // Switch (checked)
+                    cspy.Reset();
+                    detail::Switch::Render(
+                        cspy, Rect(0.0f, 0.0f, 60.0f, 24.0f), true,
+                        SwitchOptions{.color = sc}, UiSize::Md, false, false, false, t, false
+                    );
+                    CHECK(cspy.roundRects.size() >= 2u);
+                    if (cspy.roundRects.size() >= 2u) {
+                        const auto& track = cspy.roundRects[0];
+                        const Color knob = cspy.roundRects[1].fill;
+                        if (track.isGrad) {
+                            CHECK(Color::ContrastRatio(knob, effectiveBg(track.grad0, t.palette.surface)) >= 3.0f);
+                            CHECK(Color::ContrastRatio(knob, effectiveBg(track.grad1, t.palette.surface)) >= 3.0f);
+                        } else {
+                            CHECK(Color::ContrastRatio(knob, effectiveBg(track.fill, t.palette.surface)) >= 3.0f);
+                        }
+                    }
+
+                    // Checkbox (checked)
+                    cspy.Reset();
+                    detail::Checkbox::Render(
+                        cspy, Rect(0.0f, 0.0f, 24.0f, 24.0f), true,
+                        CheckboxOptions{.color = sc}, UiSize::Md, false, false, false, t, false
+                    );
+                    CHECK(!cspy.roundRects.empty() && !cspy.lines.empty());
+                    if (!cspy.roundRects.empty() && !cspy.lines.empty()) {
+                        const Color boxBg = effectiveBg(cspy.roundRects[0].fill, t.palette.surface);
+                        CHECK(Color::ContrastRatio(cspy.lines[0].color, boxBg) >= 3.0f);
+                    }
+
+                    // Radio (selected)
+                    cspy.Reset();
+                    detail::Radio::Render(
+                        cspy, Rect(0.0f, 0.0f, 24.0f, 24.0f), true,
+                        RadioOptions{.color = sc}, UiSize::Md, false, false, false, t, false
+                    );
+                    CHECK(cspy.roundRects.size() >= 2u);
+                    if (cspy.roundRects.size() >= 2u) {
+                        const Color ringBg = effectiveBg(cspy.roundRects[0].fill, t.palette.surface);
+                        CHECK(Color::ContrastRatio(cspy.roundRects[1].fill, ringBg) >= 3.0f);
+                    }
+                }
+
+                // Switch (symmetric): knob must stay clearly visible against neutral controlTrack
+                cspy.Reset();
+                detail::Switch::Render(
+                    cspy, Rect(0.0f, 0.0f, 60.0f, 24.0f), true,
+                    SwitchOptions{.symmetric = true}, UiSize::Md, false, false, false, t, false
+                );
+                CHECK(cspy.roundRects.size() >= 2u);
+                if (cspy.roundRects.size() >= 2u) {
+                    const Color symTrack = effectiveBg(cspy.roundRects[0].fill, t.palette.surface);
+                    CHECK(Color::ContrastRatio(cspy.roundRects[1].fill, symTrack) >= 2.0f);
+                }
+            }
+
+            // Segmented & Pagination active label contrast across all 13 presets (default chrome & fill)
+            for (UiVariant var : {UiVariant::Primary, UiVariant::Success, UiVariant::Warning}) {
+                UiTheme t = UiTheme::FromPreset(preset);
+                Context ui;
+                ui.SetTheme(t);
+                keel::usize segSel = 0u;
+                keel::usize pageCur = 0u;
+                cspy.Reset();
+                ui.BeginFrame({400.0f, 120.0f});
+                if (auto col = guikit::Column(ui, {.gap = 6.0f})) {
+                    guikit::Segmented(ui, segSel, {"Alpha", "Beta"}, {.variant = var});
+                    guikit::Pagination(ui, pageCur, 5u, {.variant = var});
+                }
+                ui.EndFrame(cspy);
+
+                bool foundSegText = false;
+                bool foundPageText = false;
+                const Color semBg = t.GetSemanticAccent(var);
+                for (const auto& td : cspy.texts) {
+                    if (td.text == "Alpha") {
+                        foundSegText = true;
+                        CHECK(Color::ContrastRatio(td.color, semBg) >= 4.2f);
+                    } else if (td.text == "1") {
+                        foundPageText = true;
+                        CHECK(Color::ContrastRatio(td.color, semBg) >= 4.2f);
+                    }
+                }
+                CHECK(foundSegText);
+                CHECK(foundPageText);
+            }
+        }
+        cspy.End();
     }
 
     // 6. Unified UiVariant across actions/ widgets triggers visual damage on variant change

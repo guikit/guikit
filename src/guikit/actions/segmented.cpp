@@ -152,13 +152,6 @@ void ComputeSegmentRects(
     }
 }
 
-Color ResolveContrastingTextOnFill(Color fill, const ThemePalette& pal) noexcept {
-    const keel::f32 lum = (0.299f * keel::as<keel::f32>(fill.r) +
-                       0.587f * keel::as<keel::f32>(fill.g) +
-                       0.114f * keel::as<keel::f32>(fill.b)) / 255.0f;
-    return (lum > 0.62f) ? Color(15, 23, 42, 255) : pal.controlKnobActive;
-}
-
 } // namespace
 
 Vec2 detail::Segmented::Measure(
@@ -547,14 +540,14 @@ void detail::Segmented::Render(
 
             if (opts.color.HasAny()) {
                 pillFill = theme.ResolveColor(opts.color, hovered, pressed, segDisabled, pal.accent);
-                fgColor = segDisabled ? pal.textMuted : ResolveContrastingTextOnFill(pillFill, pal);
+                fgColor = segDisabled ? pal.textMuted : theme.ResolveOnFillInk(pillFill, Color::Transparent(), 4.5f, /*gradientFill=*/true);
             } else if (opts.variant != UiVariant::Default) {
                 const Color semSeed = theme.GetSemanticAccent(opts.variant);
                 pillFill = segDisabled
                     ? semSeed.WithAlphaF(theme.disabledOpacity)
                     : (pressed ? StateColor::DarkenColor(semSeed)
                                : (hovered ? StateColor::BrightenColor(semSeed) : semSeed));
-                fgColor = segDisabled ? pal.textMuted : ResolveContrastingTextOnFill(pillFill, pal);
+                fgColor = segDisabled ? pal.textMuted : theme.ResolveOnFillInk(pillFill, Color::Transparent(), 4.5f, /*gradientFill=*/true);
             } else {
                 const Color basePill = Color::Lerp(pal.surfaceHover, pal.accent, 0.24f);
                 pillFill = segDisabled

@@ -754,9 +754,9 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
                 .caret             = Color::Hex(0x000000FF),
                 .controlTrack      = Color::Hex(0xB0B0B0FF), // Sunken scrollbar / slider trough
                 .controlTrackHover = Color::Hex(0xA4A4A4FF),
-                .controlKnob       = Color::Hex(0xC0C0C0FF), // Classic raised silver thumb
-                .controlKnobHover  = Color::Hex(0xD0D0D0FF),
-                .controlKnobActive = Color::Hex(0xB0B0B0FF),
+                .controlKnob       = Color::Hex(0xF5F5F5FF), // Crisp neutral thumb (Classic3D uses raised 3D surface bevel)
+                .controlKnobHover  = Color::Hex(0xFFFFFFFF),
+                .controlKnobActive = Color::Hex(0xFFFFFFFF),
                 .accent            = Color::Hex(0x000080FF), // Iconic Win98 Active Titlebar Navy (16.0:1 with white)
                 .accentHover       = Color::Hex(0x0000A8FF), // Rich Win98 hover blue
                 .accentText        = Color::Hex(0xFFFFFFFF)
@@ -803,7 +803,7 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
                 .controlTrackHover = Color::Hex(0x343045FF),
                 .controlKnob       = Color::Hex(0xF5F5F7FF),
                 .controlKnobHover  = Color::Hex(0xFFFFFFFF),
-                .controlKnobActive = Color::Hex(0xC4F500FF),
+                .controlKnobActive = Color::Hex(0xFFFFFFFF),
                 .accent            = Color::Hex(0xD91A72FF), // Signature GuiKit Hot Magenta (4.84:1 AA with white)
                 .accentHover       = Color::Hex(0xF02884FF),
                 .accentText        = Color::Hex(0xFFFFFFFF)
@@ -852,7 +852,7 @@ void ApplyCuratedPresetColors(UiTheme& theme, ThemePreset p) noexcept {
                 .controlTrackHover = Color::Hex(0xD4D0E0FF),
                 .controlKnob       = Color::Hex(0xFFFFFFFF),
                 .controlKnobHover  = Color::Hex(0xFFFFFFFF),
-                .controlKnobActive = Color::Hex(0xC21365FF),
+                .controlKnobActive = Color::Hex(0xFFFFFFFF),
                 .accent            = Color::Hex(0xC21365FF), // Deep Berry Magenta (5.86:1 AA+ with white)
                 .accentHover       = Color::Hex(0xD91A72FF),
                 .accentText        = Color::Hex(0xFFFFFFFF)
