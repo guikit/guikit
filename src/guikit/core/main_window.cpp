@@ -115,7 +115,8 @@ bool MainWindow::Initialize() {
             RenderFrame();
         },
         .onHitTest = [this](Vec2 logicalPos) -> WindowHitRegion {
-            return m_ui.ResolveWindowHitRegion(logicalPos);
+            const keel::f32 zoom = (m_ui.GetRootZoom() > 0.01f) ? m_ui.GetRootZoom() : 1.0f;
+            return m_ui.ResolveWindowHitRegion({logicalPos.x / zoom, logicalPos.y / zoom});
         }
     };
 

@@ -2252,22 +2252,32 @@ WindowHitRegion Context::ResolveWindowHitRegion(
 ) const noexcept {
     const Vec2 logicalSize = (m_pixelsPerDp > 0.001f) ? (m_viewportSize / m_pixelsPerDp) : m_viewportSize;
 
-    // 1. 8-edge window resize borders (only when resizable and not maximized)
+    // 1. 8-edge window resize borders with generous L-shaped corner arms (only when resizable and not maximized)
     if (resizable && !maximized && logicalSize.x > 16.0f && logicalSize.y > 16.0f && resizeBorderDp > 0.0f) {
         const keel::f32 b = resizeBorderDp;
-        const bool onLeft   = logicalPos.x >= 0.0f && logicalPos.x < b;
-        const bool onRight  = logicalPos.x <= logicalSize.x && logicalPos.x >= (logicalSize.x - b);
-        const bool onTop    = logicalPos.y >= 0.0f && logicalPos.y < b;
-        const bool onBottom = logicalPos.y <= logicalSize.y && logicalPos.y >= (logicalSize.y - b);
+        const keel::f32 corner = keel::min(keel::max(b * 2.5f, 16.0f), keel::min(logicalSize.x, logicalSize.y) * 0.25f);
+        const bool insideX = logicalPos.x >= -1.0f && logicalPos.x <= (logicalSize.x + 1.0f);
+        const bool insideY = logicalPos.y >= -1.0f && logicalPos.y <= (logicalSize.y + 1.0f);
+        if (insideX && insideY) {
+            const bool onLeft   = logicalPos.x < b;
+            const bool onRight  = logicalPos.x >= (logicalSize.x - b);
+            const bool onTop    = logicalPos.y < b;
+            const bool onBottom = logicalPos.y >= (logicalSize.y - b);
 
-        if (onTop && onLeft)     return WindowHitRegion::ResizeTopLeft;
-        if (onTop && onRight)    return WindowHitRegion::ResizeTopRight;
-        if (onBottom && onLeft)  return WindowHitRegion::ResizeBottomLeft;
-        if (onBottom && onRight) return WindowHitRegion::ResizeBottomRight;
-        if (onLeft)              return WindowHitRegion::ResizeLeft;
-        if (onRight)             return WindowHitRegion::ResizeRight;
-        if (onTop)               return WindowHitRegion::ResizeTop;
-        if (onBottom)            return WindowHitRegion::ResizeBottom;
+            const bool nearLeft   = logicalPos.x < corner;
+            const bool nearRight  = logicalPos.x >= (logicalSize.x - corner);
+            const bool nearTop    = logicalPos.y < corner;
+            const bool nearBottom = logicalPos.y >= (logicalSize.y - corner);
+
+            if ((onTop && nearLeft) || (onLeft && nearTop))         return WindowHitRegion::ResizeTopLeft;
+            if ((onTop && nearRight) || (onRight && nearTop))       return WindowHitRegion::ResizeTopRight;
+            if ((onBottom && nearLeft) || (onLeft && nearBottom))   return WindowHitRegion::ResizeBottomLeft;
+            if ((onBottom && nearRight) || (onRight && nearBottom)) return WindowHitRegion::ResizeBottomRight;
+            if (onLeft)   return WindowHitRegion::ResizeLeft;
+            if (onRight)  return WindowHitRegion::ResizeRight;
+            if (onTop)    return WindowHitRegion::ResizeTop;
+            if (onBottom) return WindowHitRegion::ResizeBottom;
+        }
     }
 
     // Active popups or modals always receive client input (never intercepted as window caption/controls)

@@ -20974,15 +20974,21 @@ void TestHeaderBarAndSystemDialogsWorkflow() {
         CHECK_NEAR(barRect.w, 800.0f, 1.0f);
         CHECK(btnRect.w > 20.0f && inputRect.w > 100.0f);
 
-        // 8-edge resize borders when resizable && !maximized
-        CHECK(ui.ResolveWindowHitRegion({2.0f, 2.0f})     == WindowHitRegion::ResizeTopLeft);
-        CHECK(ui.ResolveWindowHitRegion({400.0f, 2.0f})   == WindowHitRegion::ResizeTop);
-        CHECK(ui.ResolveWindowHitRegion({798.0f, 2.0f})   == WindowHitRegion::ResizeTopRight);
-        CHECK(ui.ResolveWindowHitRegion({2.0f, 250.0f})   == WindowHitRegion::ResizeLeft);
-        CHECK(ui.ResolveWindowHitRegion({798.0f, 250.0f}) == WindowHitRegion::ResizeRight);
-        CHECK(ui.ResolveWindowHitRegion({2.0f, 498.0f})   == WindowHitRegion::ResizeBottomLeft);
-        CHECK(ui.ResolveWindowHitRegion({400.0f, 498.0f}) == WindowHitRegion::ResizeBottom);
-        CHECK(ui.ResolveWindowHitRegion({798.0f, 498.0f}) == WindowHitRegion::ResizeBottomRight);
+        // 8-edge resize borders + L-shaped corner arms + fractional-DPI edge tolerance when resizable && !maximized
+        CHECK(ui.ResolveWindowHitRegion({2.0f, 2.0f})       == WindowHitRegion::ResizeTopLeft);
+        CHECK(ui.ResolveWindowHitRegion({12.0f, 2.0f})      == WindowHitRegion::ResizeTopLeft);
+        CHECK(ui.ResolveWindowHitRegion({2.0f, 12.0f})      == WindowHitRegion::ResizeTopLeft);
+        CHECK(ui.ResolveWindowHitRegion({400.0f, 2.0f})     == WindowHitRegion::ResizeTop);
+        CHECK(ui.ResolveWindowHitRegion({798.0f, 2.0f})     == WindowHitRegion::ResizeTopRight);
+        CHECK(ui.ResolveWindowHitRegion({788.0f, 2.0f})     == WindowHitRegion::ResizeTopRight);
+        CHECK(ui.ResolveWindowHitRegion({2.0f, 250.0f})     == WindowHitRegion::ResizeLeft);
+        CHECK(ui.ResolveWindowHitRegion({798.0f, 250.0f})   == WindowHitRegion::ResizeRight);
+        CHECK(ui.ResolveWindowHitRegion({2.0f, 498.0f})     == WindowHitRegion::ResizeBottomLeft);
+        CHECK(ui.ResolveWindowHitRegion({400.0f, 498.0f})   == WindowHitRegion::ResizeBottom);
+        CHECK(ui.ResolveWindowHitRegion({798.0f, 498.0f})   == WindowHitRegion::ResizeBottomRight);
+        CHECK(ui.ResolveWindowHitRegion({788.0f, 498.0f})   == WindowHitRegion::ResizeBottomRight);
+        CHECK(ui.ResolveWindowHitRegion({798.0f, 488.0f})   == WindowHitRegion::ResizeBottomRight);
+        CHECK(ui.ResolveWindowHitRegion({800.4f, 500.4f})   == WindowHitRegion::ResizeBottomRight);
 
         // Free space inside HeaderBar (and over passive title text) -> Caption
         CHECK(ui.ResolveWindowHitRegion({360.0f, 20.0f}) == WindowHitRegion::Caption);
