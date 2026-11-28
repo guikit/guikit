@@ -41,19 +41,19 @@ namespace {
     return lo;
 }
 
-[[nodiscard]] keel::u64 HashFoldedLines(keel::ArrayRef<keel::usize> foldedLines) noexcept {
+} // namespace
+
+// =============================================================================
+// Basic Utilities & TextSourceView
+// =============================================================================
+
+keel::u64 HashFoldedLines(keel::ArrayRef<keel::usize> foldedLines) noexcept {
     keel::u64 h = detail::HashArgs(foldedLines.size());
     for (keel::usize fl : foldedLines) {
         h = detail::HashArgs(h, fl);
     }
     return h;
 }
-
-} // namespace
-
-// =============================================================================
-// Basic Utilities & TextSourceView
-// =============================================================================
 
 bool ContainsSizeT(keel::ArrayRef<keel::usize> list, keel::usize val) noexcept {
     for (keel::usize item : list) {

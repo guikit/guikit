@@ -1252,17 +1252,24 @@ TextAreaResponse RunTextAreaCore(
     // Hit-test Gutter (Breakpoints & Code Folding chevrons) using f64 scroll
     keel::i32 hoveredGutterLine = -1;
     keel::i32 hoveredFoldLine = -1;
-    if (res.hovered && L.gutterRect.w > 0.0f && L.gutterRect.Contains(mousePos)) {
+    const Rect foldHitBand(
+        L.gutterRect.Right() - L.foldColWidth - 4.0f,
+        L.gutterRect.y,
+        L.foldColWidth + 6.0f,
+        L.gutterRect.h
+    );
+    if (res.hovered && L.gutterRect.w > 0.0f &&
+        (L.gutterRect.Contains(mousePos) || (opts.codeFolding && foldHitBand.Contains(mousePos)))) {
         const keel::f64 relY = keel::as<keel::f64>(mousePos.y - L.textViewport.y) + state.scrollY;
         const keel::f64 rawIdxF = keel::floor(relY / keel::max(1.0, keel::as<keel::f64>(L.lineHeight)));
         if (rawIdxF >= 0.0 && rawIdxF < keel::as<keel::f64>(L.totalVisualRows)) {
             const VisualLine vl = proj.VisualRowAt(keel::as<keel::usize>(rawIdxF));
             if (vl.isFirstSubLine) {
-                if (opts.codeFolding && mousePos.x >= L.gutterRect.Right() - L.foldColWidth - 2.0f) {
+                if (opts.codeFolding && foldHitBand.Contains(mousePos)) {
                     if (FindFoldRegionStartingAt(foldRegions, vl.logicalLine) != nullptr) {
                         hoveredFoldLine = keel::as<keel::i32>(vl.logicalLine);
                     }
-                } else if (opts.breakpoints.has_target() || opts.enableBreakpoints) {
+                } else if (L.gutterRect.Contains(mousePos) && (opts.breakpoints.has_target() || opts.enableBreakpoints)) {
                     hoveredGutterLine = keel::as<keel::i32>(vl.logicalLine);
                 }
             }
@@ -1293,6 +1300,57 @@ TextAreaResponse RunTextAreaCore(
 
     // Handle LMB press on overlay buttons, debug toolbar, gutter, minimap, scrollbars, or text viewport
     bool consumedByChrome = false;
+    bool toggledFoldThisFrame = false;
+    auto toggleFoldAtStartLine = [&](keel::usize fl) {
+        keel::usize foundIdx = state.foldedLines.size();
+        for (keel::usize fi = 0u; fi < state.foldedLines.size(); ++fi) {
+            if (state.foldedLines[fi] == fl) {
+                foundIdx = fi;
+                break;
+            }
+        }
+        if (foundIdx < state.foldedLines.size()) {
+            state.foldedLines.remove_at(foundIdx);
+            for (keel::usize pi = 0u; pi < state.preservedFoldedRegions.size(); ++pi) {
+                if (state.preservedFoldedRegions[pi].startLine == fl) {
+                    state.preservedFoldedRegions.remove_at(pi);
+                    break;
+                }
+            }
+        } else {
+            state.foldedLines.push_back(fl);
+            if (const FoldRegion* fr = FindFoldRegionStartingAt(foldRegions, fl)) {
+                bool alreadyPreserved = false;
+                for (const FoldRegion& pr : state.preservedFoldedRegions) {
+                    if (pr.startLine == fl) {
+                        alreadyPreserved = true;
+                        break;
+                    }
+                }
+                if (!alreadyPreserved) {
+                    state.preservedFoldedRegions.push_back(*fr);
+                }
+                // Relocate cursor/selection out of hidden lines to the fold header line (VS Code behavior)
+                // so the auto-unfold guard does not immediately undo the fold the user just triggered!
+                const keel::usize maxOff = source.ByteLength();
+                const keel::usize curLine = source.OffsetToLineCol(keel::min(state.cursor, maxOff)).line;
+                const keel::usize selStartLine = source.OffsetToLineCol(keel::min(state.selectionStart, maxOff)).line;
+                const keel::usize selEndLine = source.OffsetToLineCol(keel::min(state.selectionEnd, maxOff)).line;
+                const bool caretInFold =
+                    (curLine > fr->startLine && curLine <= fr->endLine) ||
+                    (selStartLine > fr->startLine && selStartLine <= fr->endLine) ||
+                    (selEndLine > fr->startLine && selEndLine <= fr->endLine);
+                if (caretInFold) {
+                    const TextLineRange hdr = source.LineByteRange(fr->startLine);
+                    const keel::usize hdrEnd = hdr.startByte + hdr.contentBytes;
+                    setCursorAndAnchor(hdrEnd, hdrEnd);
+                    state.prevCursor = hdrEnd;
+                }
+            }
+        }
+        toggledFoldThisFrame = true;
+        layoutDirty = true;
+    };
     if (mouseJustPressed) {
         if (hoveredOverlayBtn >= 0) {
             consumedByChrome = true;
@@ -1347,29 +1405,7 @@ TextAreaResponse RunTextAreaCore(
             }
         } else if (hoveredFoldLine >= 0) {
             consumedByChrome = true;
-            const keel::usize fl = keel::as<keel::usize>(hoveredFoldLine);
-            keel::usize foundIdx = state.foldedLines.size();
-            for (keel::usize fi = 0u; fi < state.foldedLines.size(); ++fi) {
-                if (state.foldedLines[fi] == fl) {
-                    foundIdx = fi;
-                    break;
-                }
-            }
-            if (foundIdx < state.foldedLines.size()) {
-                state.foldedLines.remove_at(foundIdx);
-                for (keel::usize pi = 0u; pi < state.preservedFoldedRegions.size(); ++pi) {
-                    if (state.preservedFoldedRegions[pi].startLine == fl) {
-                        state.preservedFoldedRegions.remove_at(pi);
-                        break;
-                    }
-                }
-            } else {
-                state.foldedLines.push_back(fl);
-                if (const FoldRegion* fr = FindFoldRegionStartingAt(foldRegions, fl)) {
-                    state.preservedFoldedRegions.push_back(*fr);
-                }
-            }
-            layoutDirty = true;
+            toggleFoldAtStartLine(keel::as<keel::usize>(hoveredFoldLine));
         } else if (hoveredGutterLine >= 0) {
             consumedByChrome = true;
             toggleBreakpointAtLine(keel::as<keel::usize>(hoveredGutterLine) + 1u);
@@ -1432,8 +1468,32 @@ TextAreaResponse RunTextAreaCore(
             state.draggingHThumb = true;
             state.dragGrabOffset = halfThumb;
         } else if (L.editorBox.Contains(mousePos)) {
-            state.overlayFocus = 0;
-            state.draggingText = true;
+            // Clicking the "[...]" summary pill at the end of a folded line unfolds it immediately.
+            bool unfoldedViaPill = false;
+            if (opts.codeFolding && !state.foldedLines.empty() && L.textViewport.Contains(mousePos)) {
+                const keel::f64 relY = keel::as<keel::f64>(mousePos.y - L.textViewport.y) + state.scrollY;
+                const keel::f64 relX = keel::as<keel::f64>(mousePos.x - L.textViewport.x) + state.scrollX;
+                const keel::f64 rawVisF = keel::floor(relY / keel::max(1.0, keel::as<keel::f64>(L.lineHeight)));
+                if (rawVisF >= 0.0 && rawVisF < keel::as<keel::f64>(L.totalVisualRows)) {
+                    const VisualLine vl = proj.VisualRowAt(keel::as<keel::usize>(rawVisF));
+                    if (vl.isFirstSubLine && IsLineFoldedStart(state.foldedLines, vl.logicalLine)) {
+                        keel::String pillScratch;
+                        const keel::f64 lineEndX = MeasureColumnXInVisualRow(
+                            source, vl, vl.length, L.metrics, textStyle, canvas, opts.tabSize, pillScratch);
+                        const keel::f64 pillStartX = lineEndX + keel::as<keel::f64>(L.metrics.spaceAdvance) * 0.4;
+                        const keel::f64 pillEndX = lineEndX + keel::as<keel::f64>(L.metrics.spaceAdvance) * 5.4;
+                        if (relX >= pillStartX && relX <= pillEndX) {
+                            toggleFoldAtStartLine(vl.logicalLine);
+                            consumedByChrome = true;
+                            unfoldedViaPill = true;
+                        }
+                    }
+                }
+            }
+            if (!unfoldedViaPill) {
+                state.overlayFocus = 0;
+                state.draggingText = true;
+            }
         }
     }
 
@@ -1567,7 +1627,7 @@ TextAreaResponse RunTextAreaCore(
             if (isFocused && state.overlayFocus == 0) {
                 bool lostFocus = false;
                 if (mutDoc) {
-                    if (HandleTextDocumentInput(ctx, id, *mutDoc, state, optsCopy, lostFocus)) {
+                    if (HandleTextDocumentInput(ctx, id, *mutDoc, state, optsCopy, proj, lostFocus)) {
                         docChangedThisFrame = true;
                     }
                 } else {
@@ -1747,11 +1807,13 @@ TextAreaResponse RunTextAreaCore(
             state.selectionEnd = keel::max(cursor, selAnchor);
         }
 
-        // Unfold if cursor moved into a folded block
-        const keel::usize curLogical = source.OffsetToLineCol(cursor).line;
-        if (proj.IsLineHidden(curLogical)) {
-            if (ensureLineUnfolded(curLogical)) {
-                L = computeLayout();
+        // Unfold if cursor moved into a folded block (never undo a fold explicitly toggled on this frame)
+        if (!toggledFoldThisFrame) {
+            const keel::usize curLogical = source.OffsetToLineCol(cursor).line;
+            if (proj.IsLineHidden(curLogical)) {
+                if (ensureLineUnfolded(curLogical)) {
+                    L = computeLayout();
+                }
             }
         }
 
@@ -1992,6 +2054,8 @@ TextAreaResponse RunTextAreaCore(
         markersHash = detail::HashArgs(markersHash, bp);
     }
 
+    const keel::u64 foldedLinesHash = HashFoldedLines(state.foldedLines);
+
     const SyntaxPalette& effSynPal = optsCopy.syntaxPalette.has_value()
         ? *optsCopy.syntaxPalette
         : ((optsCopy.syntax.has_value() && optsCopy.syntax->palette.has_value()) ? *optsCopy.syntax->palette : theme.syntax);
@@ -2036,7 +2100,7 @@ TextAreaResponse RunTextAreaCore(
         state.draggingDebugToolbar,
         optsCopy.toolbarSize.value_or(activeSize),
         markersHash,
-        state.foldedLines.size(),
+        foldedLinesHash,
         state.searchOpen,
         state.replaceOpen,
         state.gotoOpen,

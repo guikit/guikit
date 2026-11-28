@@ -184,6 +184,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/display/text.cpp
     src/guikit/fields/text_area.cpp
     src/guikit/fields/text_area_highlight.cpp
+    src/guikit/fields/text_area_input.cpp
     src/guikit/fields/text_area_languages.cpp
     src/guikit/fields/text_area_layout.cpp
     src/guikit/fields/text_area_render.cpp

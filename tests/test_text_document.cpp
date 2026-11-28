@@ -1222,6 +1222,114 @@ void TestBuiltInLanguagePresetsAndHighlighting() {
     }
 }
 
+void TestCodeFoldingWithCursorInsideBlock() {
+    using namespace guikit;
+
+    // Function block spanning lines 0..4 (0-based):
+    //   0: void Foo() {
+    //   1:     int a = 1;
+    //   2:     int b = 2;
+    //   3:     int c = a + b;
+    //   4: }
+    //   5: int after = 0;
+    TextDocument doc(
+        "void Foo() {\n"
+        "    int a = 1;\n"
+        "    int b = 2;\n"
+        "    int c = a + b;\n"
+        "}\n"
+        "int after = 0;\n"
+    );
+
+    Context ui;
+    NullCanvas canvas;
+    const UiTheme theme = UiTheme::Dark();
+    ui.SetTheme(theme);
+
+    const TextAreaOptions opts{
+        .showLineNumbers = true,
+        .syntax = SyntaxConfig::Cpp(),
+        .height = 300.0f,
+        .codeFolding = true
+    };
+    TextAreaResponse resp{};
+
+    auto drawFrame = [&]() {
+        ui.BeginFrame({800.0f, 400.0f});
+        resp = guikit::CodeEditor(ui, doc, opts);
+        ui.EndFrame(canvas);
+    };
+
+    // Warm up layout
+    drawFrame();
+    drawFrame();
+
+    // Place focus and cursor INSIDE the foldable block (on line 2: "    int b = 2;")
+    const keel::usize insideOffset = doc.LineColToOffset(2u, 4u);
+    {
+        auto& st = ui.GetOrCreatePersistentState<TextAreaState>(resp.id);
+        st.cursor = insideOffset;
+        st.anchor = insideOffset;
+        st.selectionStart = insideOffset;
+        st.selectionEnd = insideOffset;
+        st.prevCursor = insideOffset;
+    }
+    ui.RequestFocus(resp.id);
+    drawFrame();
+    CHECK(resp.focused);
+    CHECK(resp.cursorLine == 3u); // 1-based line 3 == 0-based line 2
+
+    // Compute exact fold chevron hit coordinates on line 0
+    const keel::f32 baseFs = theme.GetTypography(TextRole::CodeMedium).fontSize;
+    const keel::f32 spW = canvas.MeasureTextStyled(" ", baseFs, FontStyle::Monospace).x;
+    const keel::f32 digW = canvas.MeasureTextStyled("8", baseFs, FontStyle::Monospace).x;
+    const keel::f32 foldColW = keel::max(14.0f, spW * 1.85f);
+    const keel::f32 gutterW = 2.0f * digW + spW * 2.5f + foldColW;
+    const keel::f32 padY = keel::max(8.0f, theme.GetMetrics(UiSize::Md).paddingY);
+    const keel::f32 lh = keel::max(theme.GetLineHeight(baseFs), canvas.MeasureTextStyled("Mg", baseFs, FontStyle::Monospace).y * 1.14f);
+    const Vec2 chevronPos{
+        resp.rect.x + 1.0f + gutterW - foldColW * 0.5f,
+        resp.rect.y + 1.0f + padY + lh * 0.5f
+    };
+
+    // Click fold chevron while cursor is INSIDE lines 1..4 -> MUST collapse AND relocate cursor to line 0!
+    ui.OnMouseMove(chevronPos);
+    ui.OnMouseDown(1);
+    drawFrame();
+    ui.OnMouseUp(1);
+    drawFrame();
+
+    const auto* st = ui.FindState<TextAreaState>(resp.id);
+    CHECK(st != nullptr);
+    CHECK(st != nullptr && st->foldedLines.size() == 1u && st->foldedLines[0] == 0u);
+    CHECK(resp.cursorLine == 1u); // Relocated cleanly to header line 1 (0-based line 0)
+
+    // Render another idle frame while focused -> MUST STAY FOLDED!
+    drawFrame();
+    CHECK(st != nullptr && st->foldedLines.size() == 1u && st->foldedLines[0] == 0u);
+
+    // Pressing Down arrow from folded line 0 MUST jump cleanly over hidden lines 1..4 to line 5 (1-based line 6)
+    // WITHOUT unfolding the block!
+    ui.OnKeyDown(Key::Down);
+    drawFrame();
+    CHECK(resp.cursorLine == 6u);
+    CHECK(st != nullptr && st->foldedLines.size() == 1u && st->foldedLines[0] == 0u);
+
+    // Pressing Up arrow from line 5 MUST jump cleanly back to line 0 (1-based line 1) WITHOUT unfolding!
+    ui.OnKeyDown(Key::Up);
+    drawFrame();
+    CHECK(resp.cursorLine == 1u);
+    CHECK(st != nullptr && st->foldedLines.size() == 1u && st->foldedLines[0] == 0u);
+
+    // Click chevron again -> MUST unfold cleanly!
+    ui.OnMouseMove(chevronPos);
+    ui.OnMouseDown(1);
+    drawFrame();
+    ui.OnMouseUp(1);
+    drawFrame();
+    CHECK(st != nullptr && st->foldedLines.empty());
+}
+
 } // namespace
 
 int main() {
@@ -1236,6 +1344,7 @@ int main() {
     TestCodeEditorDocumentInteractionAndMassiveRender();
     TestCheckpointedLexerAndWindowedFolding();
     TestBuiltInLanguagePresetsAndHighlighting();
+    TestCodeFoldingWithCursorInsideBlock();
 
     if (g_failures == 0) {
         keel::println("[PASS] All TextDocument tests passed (0 failures).");

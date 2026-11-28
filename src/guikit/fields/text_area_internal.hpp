@@ -324,6 +324,7 @@ void AttachRenderProjection(
 
 bool ContainsSizeT(keel::ArrayRef<keel::usize> list, keel::usize val) noexcept;
 void SortSizeT(keel::MutArrayRef<keel::usize> arr) noexcept;
+[[nodiscard]] keel::u64 HashFoldedLines(keel::ArrayRef<keel::usize> foldedLines) noexcept;
 void StringEraseSpan(keel::String& s, keel::usize pos, keel::usize len);
 void StringInsertSpan(keel::String& s, keel::usize pos, keel::StringRef ins);
 
@@ -506,6 +507,7 @@ bool HandleTextDocumentInput(
     TextDocument& doc,
     TextAreaState& state,
     const TextAreaOptions& opts,
+    const TextViewProjection& proj,
     bool& outLostFocus
 );
 
