@@ -1054,14 +1054,13 @@ void DrawDragOverlay(
         const Color bg = active ? pal.accent : pal.surfaceElevated.WithAlphaF(0.95f);
         const Color bd = active ? pal.accent : pal.border;
         const Color fg = active ? pal.accentText : pal.textSecondary;
+        const keel::f32 tileRad = keel::min(4.0f, theme.GetRadius(UiSize::Sm));
         theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
             .rect = r,
-            .radius = 4.0f,
-            .explicitRadius = true,
+            .radius = tileRad,
             .bg = bg,
             .border = bd,
             .borderWidth = 1.0f,
-            .explicitBorder = true,
             .hovered = active,
             .active = active,
             .elevation = Elevation::Sm
@@ -1176,12 +1175,12 @@ void DrawDragOverlay(
     }
     const Rect ghostR(keel::round(ghostX), keel::round(ghostY), keel::round(ghostW), keel::round(ghostH));
 
+    const keel::f32 ghostRad = (m.cornerRadius > 0.01f) ? (m.cornerRadius + 2.0f) : 0.0f;
     theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
         .rect = ghostR,
         .role = SurfaceRole::Popup,
-        .radius = m.cornerRadius + 2.0f,
-        .explicitRadius = true,
-        .bg = pal.surfaceElevated.WithAlphaF(0.95f),
+        .radius = ghostRad,
+        .bg = pal.surfaceElevated,
         .border = pal.accent,
         .borderWidth = 1.5f,
         .explicitBorder = true,

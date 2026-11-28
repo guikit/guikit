@@ -9357,6 +9357,79 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
         CHECK(st->debugToolbarRatio < 0.0f);
     }
 
+    // 10. Floating Debug Toolbar & Search Overlay obey active chrome radius/surface (sharp 3D bevel in Win98, sharp hard shadow in Brutalist, rounded + shadow in Modern)
+    {
+        struct OverlayChromeSpy final : public NullCanvas {
+            keel::i32 roundedPanelCalls{0};
+            keel::i32 sharpElevatedRects{0};
+            keel::i32 shadowCalls{0};
+            Color expectedElevated{};
+
+            void DrawRect(Rect rect, Color color) override {
+                if (rect.w >= 100.0f && rect.h >= 20.0f && rect.h <= 100.0f && color == expectedElevated) {
+                    ++sharpElevatedRects;
+                }
+                NullCanvas::DrawRect(rect, color);
+            }
+            void DrawRoundRect(Rect rect, keel::f32 radius, Color fill, Color stroke, keel::f32 strokeWidth) override {
+                if (rect.w >= 100.0f && rect.h >= 20.0f && rect.h <= 100.0f && radius > 0.01f && fill == expectedElevated) {
+                    ++roundedPanelCalls;
+                }
+                NullCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+            }
+            void DrawShadow(Rect rect, keel::f32 cornerRadius, keel::f32 blurRadius, Vec2 offset, Color color, keel::f32 spread) override {
+                ++shadowCalls;
+                NullCanvas::DrawShadow(rect, cornerRadius, blurRadius, offset, color, spread);
+            }
+        };
+
+        struct OverlayCounts {
+            keel::i32 roundedPanelCalls{0};
+            keel::i32 sharpElevatedRects{0};
+            keel::i32 shadowCalls{0};
+        };
+
+        auto runOverlayChrome = [&](const UiTheme& theme) -> OverlayCounts {
+            Context oUi;
+            oUi.SetTheme(theme);
+            OverlayChromeSpy spy{};
+            spy.expectedElevated = theme.palette.surfaceElevated;
+            spy.Begin(800, 480, 1.0f);
+            keel::String sampleCode("int x = 1;\nint y = 2;\n");
+            Response taResp{};
+            auto frame = [&]() {
+                oUi.BeginFrame({800.0f, 480.0f});
+                taResp = guikit::TextArea(oUi, sampleCode, {
+                    .height = 420.0f,
+                    .showDebugToolbar = true
+                });
+                oUi.EndFrame(spy);
+            };
+            frame();
+            oUi.GetOrCreateState<TextAreaState>(taResp.id).searchOpen = true;
+            spy.roundedPanelCalls = 0;
+            spy.sharpElevatedRects = 0;
+            spy.shadowCalls = 0;
+            frame();
+            spy.End();
+            return OverlayCounts{spy.roundedPanelCalls, spy.sharpElevatedRects, spy.shadowCalls};
+        };
+
+        const OverlayCounts w98Spy = runOverlayChrome(UiTheme::Windows98());
+        CHECK(w98Spy.roundedPanelCalls == 0);
+        CHECK(w98Spy.sharpElevatedRects >= 2); // Debug Toolbar + Find Overlay
+
+        UiTheme brutal = UiTheme::Light();
+        brutal.SetChromeStyle(ChromeStyle::Brutalist);
+        const OverlayCounts brutSpy = runOverlayChrome(brutal);
+        CHECK(brutSpy.roundedPanelCalls == 0);
+        CHECK(brutSpy.sharpElevatedRects >= 2);
+
+        const OverlayCounts modSpy = runOverlayChrome(UiTheme::Light());
+        CHECK(modSpy.roundedPanelCalls >= 2);
+        CHECK(modSpy.shadowCalls >= 2);
+    }
+
     keel::println("  [PASS] TestCodeEditorIdeAndDebuggerWorkflow completed");
 }
 

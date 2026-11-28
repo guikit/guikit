@@ -621,7 +621,8 @@ void detail::TextArea::Render(
             const keel::f32 pillW = L.metrics.spaceAdvance * 4.2f;
             const keel::f32 pillH = L.lineHeight - 4.0f;
             const Rect pillRect(pillX, lineY + 2.0f, pillW, pillH);
-            canvas.DrawRoundRect(pillRect, 3.0f, editorGutterBg, editorBorderSubtle, 1.0f);
+            const keel::f32 foldRad = theme.Painter().GetBadgeRadius(theme, pillH, 3.0f, false);
+            canvas.DrawRoundRect(pillRect, foldRad, editorGutterBg, editorBorderSubtle, 1.0f);
             canvas.DrawTextBox("...", pillRect, L.fontSize * 0.9f, editorTextSecondary, 0.5f, 0.45f);
             curX = pillRect.Right();
         }
@@ -647,10 +648,11 @@ void detail::TextArea::Render(
                         const keel::f32 ivH = L.lineHeight - 3.0f;
                         const Rect ivRect(ivX, lineY + 1.5f, ivW, ivH);
                         const Color accent = theme.GetTextColor(iv.variant);
+                        const keel::f32 ivRad = theme.Painter().GetBadgeRadius(theme, ivH, 3.5f, false);
                         if (clampedRight) {
-                            canvas.DrawRoundRect(ivRect, 3.5f, editorBgCol.WithAlphaF(0.92f), Color::Transparent(), 0.0f);
+                            canvas.DrawRoundRect(ivRect, ivRad, editorBgCol.WithAlphaF(0.92f), Color::Transparent(), 0.0f);
                         }
-                        canvas.DrawRoundRect(ivRect, 3.5f, accent.WithAlphaF(0.14f), accent.WithAlphaF(0.34f), 1.0f);
+                        canvas.DrawRoundRect(ivRect, ivRad, accent.WithAlphaF(0.14f), accent.WithAlphaF(0.34f), 1.0f);
                         canvas.DrawTextStyled(iv.text, Vec2{ivX + 6.0f, textY + 0.8f}, ivFs, accent.WithAlphaF(0.94f), FontStyle::Monospace);
                         curX = ivRect.Right();
                     }
@@ -847,6 +849,12 @@ void detail::TextArea::Render(
         theme.Painter().DrawScrollbarCorner(canvas, theme, cornerRect);
     }
 
+    const UiSize tbSize = L.toolbarSize;
+    const ComponentMetrics& tbCm = theme.GetMetrics(tbSize);
+    const keel::f32 badgeFs = tbCm.companionFontSize;
+    const keel::f32 btnRad = tbCm.cornerRadius;
+    const keel::f32 overlayRad = (btnRad > 0.01f) ? (btnRad + 2.0f) : 0.0f;
+
     // 8. Render Debug Hover DataTip Card when hovering over a variable in opts.debugVariables
     if (extData && !extData->hoveredWord.empty() && hoveredWordScreenRect.w > 0.0f && !opts.debugVariables.empty()) {
         for (const CodeDebugVar& dv : opts.debugVariables) {
@@ -866,7 +874,15 @@ void detail::TextArea::Render(
                     cardY = hoveredWordScreenRect.Bottom() + 4.0f;
                 }
                 const Rect cardRect(cardX, cardY, cardW, cardH);
-                canvas.DrawRoundRect(cardRect, 5.0f, pal.surfaceElevated, pal.focusRing, 1.2f);
+                theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+                    .rect = cardRect,
+                    .role = SurfaceRole::Popup,
+                    .radius = (overlayRad > 0.01f) ? keel::min(5.0f, overlayRad) : 0.0f,
+                    .bg = pal.surfaceElevated,
+                    .border = pal.focusRing,
+                    .borderWidth = 1.0f,
+                    .elevation = Elevation::Sm
+                });
                 canvas.DrawTextStyled(headerStr, {cardX + 8.0f, cardY + 4.0f}, tipFs, synPal.type, FontStyle::Monospace);
                 canvas.DrawTextStyled(dv.value, {cardX + 8.0f, cardY + 20.0f}, tipFs, pal.textPrimary, FontStyle::Monospace);
                 break;
@@ -874,21 +890,27 @@ void detail::TextArea::Render(
         }
     }
 
-    // 9. Render Floating Debug Toolbar (Continue, Step Over, Step Into, Step Out, Restart, Stop) â€” via UiSize & Button::Render
-    const UiSize tbSize = L.toolbarSize;
-    const ComponentMetrics& tbCm = theme.GetMetrics(tbSize);
-    const keel::f32 badgeFs = tbCm.companionFontSize;
-    const keel::f32 btnRad = tbCm.cornerRadius;
+    // 9. Render Floating Debug Toolbar (Continue, Step Over, Step Into, Step Out, Restart, Stop) — via IStylePainter & Button::Render
     if (opts.showDebugToolbar && L.debugToolbar.panelRect.w > 0.0f) {
         const auto& DT = L.debugToolbar;
         const bool gripDragging = extData && extData->debugToolbarDragging;
         const bool gripHovered = extData && (extData->hoveredDebugBtn == 98 || gripDragging);
         const Color dtBorderCol = gripDragging ? pal.focusRing : (gripHovered ? pal.textSecondary : pal.borderHover);
-        canvas.DrawRoundRect(DT.panelRect, btnRad + 3.0f, pal.surfaceElevated.WithAlphaF(0.97f), dtBorderCol, gripDragging ? 1.5f : 1.2f);
+        theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+            .rect = DT.panelRect,
+            .role = SurfaceRole::Popup,
+            .radius = overlayRad,
+            .bg = pal.surfaceElevated,
+            .border = dtBorderCol,
+            .borderWidth = gripDragging ? 1.5f : 1.0f,
+            .explicitBorder = gripDragging,
+            .elevation = Elevation::Sm
+        });
 
         // Draw VS Code-style 6-dot drag grip on the left side of the floating debug toolbar
         const keel::f32 gripSlotW = DT.btnRects[0].x - DT.panelRect.x;
         const keel::f32 dotSz = keel::max(2.0f, tbCm.iconSize * 0.14f);
+        const keel::f32 dotRad = (btnRad > 0.01f) ? (dotSz * 0.5f) : 0.0f;
         const keel::f32 dotStepY = tbCm.iconSize * 0.32f;
         const keel::f32 dotStepX = tbCm.iconSize * 0.28f;
         const keel::f32 gripX = DT.panelRect.x + (gripSlotW - dotStepX - dotSz) * 0.5f;
@@ -896,8 +918,8 @@ void detail::TextArea::Render(
         const Color gripCol = gripDragging ? pal.focusRing : (gripHovered ? pal.textPrimary : pal.textMuted.WithAlphaF(0.75f));
         for (keel::i32 rowIdx = -1; rowIdx <= 1; ++rowIdx) {
             const keel::f32 dy = gripCy + keel::as<keel::f32>(rowIdx) * dotStepY - dotSz * 0.5f;
-            canvas.DrawRoundRect(Rect(gripX, dy, dotSz, dotSz), dotSz * 0.5f, gripCol);
-            canvas.DrawRoundRect(Rect(gripX + dotStepX, dy, dotSz, dotSz), dotSz * 0.5f, gripCol);
+            canvas.DrawRoundRect(Rect(gripX, dy, dotSz, dotSz), dotRad, gripCol);
+            canvas.DrawRoundRect(Rect(gripX + dotStepX, dy, dotSz, dotSz), dotRad, gripCol);
         }
 
         // Draw vertical divider between Step Out (btn 3) and Restart (btn 4) via Toolbar::RenderSeparator
@@ -940,10 +962,28 @@ void detail::TextArea::Render(
         }
     }
 
-    // 10. Render Floating Find & Replace / Go to Line Overlay — via UiSize & Button::Render
+    // 10. Render Floating Find & Replace / Go to Line Overlay — via IStylePainter, FieldFrame & Button::Render
     if ((searchOpen || gotoOpen) && L.searchOverlay.panelRect.w > 0.0f && extData) {
         const auto& S = L.searchOverlay;
-        canvas.DrawRoundRect(S.panelRect, btnRad + 2.0f, pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, 1.0f);
+        theme.Painter().DrawSurface(canvas, theme, SurfacePaintParams{
+            .rect = S.panelRect,
+            .role = SurfaceRole::Popup,
+            .radius = overlayRad,
+            .bg = pal.surfaceElevated,
+            .border = pal.borderHover,
+            .borderWidth = 1.0f,
+            .elevation = Elevation::Sm
+        });
+
+        auto drawOverlayInput = [&](Rect rInput, bool isFocused) {
+            FieldFrame::Draw(canvas, theme, FieldFrameParams{
+                .rect = rInput,
+                .defaultRadius = btnRad,
+                .defaultStrokeWidth = 1.0f,
+                .focused = isFocused,
+                .disabled = disabled
+            });
+        };
 
         const keel::i32 hovBtn = extData->hoveredOverlayBtn;
         auto renderSquareToolBtn = [&](Rect rBtn, IconId iconId, bool activeToggle, keel::i32 btnIdx) {
@@ -964,7 +1004,7 @@ void detail::TextArea::Render(
             renderSquareToolBtn(S.toggleReplaceBtn, replaceOpen ? IconId::ChevronDown : IconId::ChevronRight, replaceOpen, 0);
 
             const bool findFocused = (extData->overlayFocus == 1);
-            canvas.DrawRoundRect(S.findInputRect, btnRad, pal.inputBackground, findFocused ? pal.focusRing : pal.inputBorder, 1.0f);
+            drawOverlayInput(S.findInputRect, findFocused);
             const Rect findTextRect(S.findInputRect.x + inputPadX, S.findInputRect.y, keel::max(10.0f, S.caseBtnRect.x - S.findInputRect.x - inputPadX * 1.3f), S.findInputRect.h);
             if (extData->searchQuery.empty() && !findFocused) {
                 canvas.DrawTextBox("Find...", findTextRect, badgeFs, pal.textMuted, 0.0f, 0.5f);
@@ -1030,7 +1070,7 @@ void detail::TextArea::Render(
 
             if (replaceOpen && S.replaceInputRect.w > 0.0f) {
                 const bool repFocused = (extData->overlayFocus == 2);
-                canvas.DrawRoundRect(S.replaceInputRect, btnRad, pal.inputBackground, repFocused ? pal.focusRing : pal.inputBorder, 1.0f);
+                drawOverlayInput(S.replaceInputRect, repFocused);
                 const Rect repTextRect(S.replaceInputRect.x + inputPadX, S.replaceInputRect.y, S.replaceInputRect.w - inputPadX * 2.0f, S.replaceInputRect.h);
                 if (extData->replaceQuery.empty() && !repFocused) {
                     canvas.DrawTextBox("Replace...", repTextRect, badgeFs, pal.textMuted, 0.0f, 0.5f);
@@ -1063,7 +1103,7 @@ void detail::TextArea::Render(
             }
         } else if (gotoOpen) {
             const bool gotoFocused = (extData->overlayFocus == 3);
-            canvas.DrawRoundRect(S.findInputRect, btnRad, pal.inputBackground, gotoFocused ? pal.focusRing : pal.inputBorder, 1.0f);
+            drawOverlayInput(S.findInputRect, gotoFocused);
             const Rect gTextRect(S.findInputRect.x + inputPadX, S.findInputRect.y, S.findInputRect.w - inputPadX * 2.0f, S.findInputRect.h);
             if (extData->gotoQuery.empty()) {
                 char ph[48]{};

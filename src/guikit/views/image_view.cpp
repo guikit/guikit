@@ -1410,8 +1410,7 @@ ImageViewResponse RunImageViewImpl(
             .width = optsCopy.sidebarWidth,
             .scrollable = true,
             .gap = 8.0f,
-            .padding = Padding::All(10.0f),
-            .border = {.radius = 6.0f}
+            .padding = Padding::All(10.0f)
         })) {
             // --- Section 1: Histogram & Interactive Window/Level ---
             guikit::Text(ctx, "Histogram & Window/Level", {.role = TextRole::LabelLarge});
