@@ -2881,8 +2881,9 @@ void TestStylePainterChromeDispatchAndPolish() {
         classic.SetChromeStyle(ChromeStyle::Classic3D);
         const ChromeMetrics cm = classic.Painter().GetChromeMetrics(classic);
         CHECK(cm.buttonPressOffset == 1.0f);
-        CHECK(cm.sliderTrackHeight == 4.0f);
-        CHECK(cm.rangeSliderTrackHeight == 6.0f);
+        CHECK(cm.sliderTrackMinHeight == 6.0f);
+        CHECK(classic.Painter().GetSliderTrackHeight(classic, classic.GetSlider(UiSize::Md).trackHeight) == 6.0f);
+        CHECK(classic.Painter().GetSliderTrackHeight(classic, 8.0f) == 8.0f);
         CHECK(cm.progressBarMinHeight == 14.0f);
         CHECK(cm.badgeShape == BadgeShape::Sharp);
         CHECK(classic.Painter().GetBadgeRadius(classic, 20.0f, 6.0f, true) == 0.0f);
@@ -4135,12 +4136,121 @@ void TestSliderThumbShapesAndContrast() {
         });
         cap.Reset();
         hcClassic.Painter().DrawSliderTrack(
-            cap, hcClassic, Rect(10.0f, 20.0f, 180.0f, 4.0f), Rect(10.0f, 20.0f, 90.0f, 4.0f),
+            cap, hcClassic, Rect(10.0f, 20.0f, 180.0f, 6.0f), Rect(10.0f, 20.0f, 90.0f, 6.0f),
             false, true, hcClassic.palette.surfaceActive, hcClassic.palette.border,
             hcClassic.palette.accent, 0.0f, false
         );
         CHECK(!cap.rects.empty());
         CHECK(Color::ContrastRatio(cap.rects[0].fill, hcClassic.palette.surface) >= 1.08f);
+    }
+
+    // 6b. Classic3D Bevel3D slider track: unified 6dp min height across chromes/sizes & pixel-exact fill containment
+    {
+        const ChromeStyle allChromes[] = {
+            ChromeStyle::Modern, ChromeStyle::Fluent, ChromeStyle::Classic3D,
+            ChromeStyle::Brutalist, ChromeStyle::Glass, ChromeStyle::Luminous
+        };
+        for (ChromeStyle cs : allChromes) {
+            UiTheme t = UiTheme::Light();
+            t.SetChromeStyle(cs);
+            const ChromeMetrics cm = t.Painter().GetChromeMetrics(t);
+            const keel::f32 mdH = t.Painter().GetSliderTrackHeight(t, t.GetSlider(UiSize::Md).trackHeight);
+            if (cs == ChromeStyle::Classic3D) {
+                CHECK(cm.sliderTrackMinHeight == 6.0f);
+                CHECK(mdH == 6.0f);
+                // Larger track heights scale above the 6dp minimum; explicit Theme Studio override wins
+                CHECK(t.Painter().GetSliderTrackHeight(t, 9.0f) == 9.0f);
+                t.SetSliderTrackHeight(4.0f);
+                CHECK(keel::abs(t.Painter().GetSliderTrackHeight(t, t.GetSlider(UiSize::Md).trackHeight) - 4.0f) < 0.01f);
+            } else {
+                CHECK(cm.sliderTrackMinHeight == 0.0f);
+                CHECK(keel::abs(mdH - t.GetSlider(UiSize::Md).trackHeight) < 0.01f);
+            }
+        }
+
+        // Fill rect must sit strictly inside the 2*step double bevel (6dp) or 1*step thin bevel (4dp)
+        // in both horizontal and vertical orientations, including 100% full-span fill and HiDPI scales.
+        const UiTheme w98 = UiTheme::Windows98();
+        const Color fillCol = Color::Hex(0x112299FF);
+        for (keel::f32 dpi : {1.0f, 1.5f, 2.0f}) {
+            cap.End();
+            cap.Begin(400, 300, dpi);
+            const PixelGrid pg = PixelGrid::From(cap);
+            const keel::f32 stepDp = pg.UnitStepDp();
+
+            for (bool vert : {false, true}) {
+                for (keel::f32 thick : {6.0f, 4.0f}) {
+                    const Rect tr = vert
+                        ? Rect(40.0f, 20.0f, thick, 160.0f)
+                        : Rect(20.0f, 40.0f, 160.0f, thick);
+                    // Full 100% span: verify neither end bevel nor cross-axis bevel is overwritten
+                    cap.Reset();
+                    w98.Painter().DrawSliderTrack(
+                        cap, w98, tr, tr, vert, true,
+                        w98.palette.surfaceActive, w98.palette.border, fillCol, 0.0f, true
+                    );
+                    bool foundFill = false;
+                    const PixelGrid::SnappedPxRect snappedTr = pg.SnapRectPx(tr);
+                    const keel::i32 step = pg.UnitStepPx();
+                    const keel::f32 expectedInset = (snappedTr.Width() >= step * 5 && snappedTr.Height() >= step * 5)
+                        ? (stepDp * 2.0f)
+                        : stepDp;
+                    for (const auto& r : cap.rects) {
+                        if (r.fill == fillCol) {
+                            foundFill = true;
+                            CHECK(keel::abs(r.rect.x - (tr.x + expectedInset)) < 0.02f);
+                            CHECK(keel::abs(r.rect.y - (tr.y + expectedInset)) < 0.02f);
+                            CHECK(keel::abs(r.rect.Right() - (tr.Right() - expectedInset)) < 0.02f);
+                            CHECK(keel::abs(r.rect.Bottom() - (tr.Bottom() - expectedInset)) < 0.02f);
+                        }
+                    }
+                    CHECK(foundFill);
+                }
+            }
+        }
+        cap.End();
+        cap.Begin(400, 300, 1.0f);
+
+        // End-to-end check: all 4 slider widgets render the exact same 6dp track groove height in Classic3D
+        auto measureWidgetTrackHeight = [&](auto&& emitWidget) -> keel::f32 {
+            Context ui;
+            ui.SetTheme(w98);
+            CaptureSliderCanvas widgetCap{};
+            widgetCap.Begin(400, 120, 1.0f);
+            ui.BeginFrame({400.0f, 120.0f});
+            emitWidget(ui);
+            ui.EndFrame(widgetCap);
+            widgetCap.End();
+            for (const auto& r : widgetCap.rects) {
+                if (r.rect.w >= 100.0f && r.rect.h >= 3.0f && r.rect.h <= 12.0f) {
+                    return r.rect.h;
+                }
+            }
+            return 0.0f;
+        };
+        keel::f32 val = 42.0f;
+        keel::usize stepIdx = 2u;
+        const keel::StringRef steps[] = {"Off", "Low", "Mid", "High", "Max"};
+        keel::f32 rLo = 22.0f, rHi = 78.0f;
+        bool hybOn = true;
+        keel::f32 hybVal = 42.0f;
+
+        const keel::f32 hSlider = measureWidgetTrackHeight([&](Context& ui) {
+            guikit::Slider(ui, val, 0.0f, 100.0f, {.width = AxisSize::Fixed(240.0f)});
+        });
+        const keel::f32 hStep = measureWidgetTrackHeight([&](Context& ui) {
+            guikit::StepSlider(ui, stepIdx, steps, {.width = AxisSize::Fixed(240.0f)});
+        });
+        const keel::f32 hRange = measureWidgetTrackHeight([&](Context& ui) {
+            guikit::RangeSlider(ui, rLo, rHi, 0.0f, 100.0f, {.width = AxisSize::Fixed(240.0f)});
+        });
+        const keel::f32 hHybrid = measureWidgetTrackHeight([&](Context& ui) {
+            guikit::HybridSlider(ui, hybOn, hybVal, 1.0f, 100.0f, {.width = AxisSize::Fixed(240.0f)});
+        });
+        CHECK(keel::abs(hSlider - 6.0f) < 0.01f);
+        CHECK(keel::abs(hStep   - 6.0f) < 0.01f);
+        CHECK(keel::abs(hRange  - 6.0f) < 0.01f);
+        CHECK(keel::abs(hHybrid - 6.0f) < 0.01f);
     }
 
     // 7. Brutalist Square thumb draws hard shadow at rest and collapses it on active drag

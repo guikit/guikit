@@ -473,7 +473,6 @@ void detail::RangeSlider::Render(
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
     const SliderMetrics& m = theme.GetSlider(size);
-    const auto& pal = theme.palette;
     const keel::f64 rangeMin = keel::min(min, max);
     const keel::f64 rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
@@ -520,21 +519,10 @@ void detail::RangeSlider::Render(
     }
 
     // 1 & 2. Draw track groove and active interval fill via active style painter
-    const keel::f32 effTrackH = theme.Painter().GetSliderTrackHeight(theme, m.trackHeight, /*isRange=*/true);
-    const keel::f32 halfTrack = effTrackH * 0.5f;
-    const Rect trackBgRect = vertical
-        ? Rect(keel::floor(layout.cross - halfTrack), layout.start - layout.length, effTrackH, layout.length)
-        : Rect(layout.start, keel::floor(layout.cross - halfTrack), layout.length, effTrackH);
-    const keel::f32 fillLen = keel::max(0.0f, keel::abs(highRatio - lowRatio) * layout.length);
-    const Rect fillRect = vertical
-        ? Rect(trackBgRect.x, highThumb.y, effTrackH, fillLen)
-        : Rect(lowThumb.x, trackBgRect.y, fillLen, effTrackH);
-    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
-    const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-    theme.Painter().DrawSliderTrack(
-        canvas, theme, trackBgRect, fillRect, vertical, fillLen > 0.0f,
-        trackBg, trackBorder, fillCol, m.cornerRadius, true
+    RenderSliderTrack(
+        canvas, layout, m, lowRatio * layout.length, highRatio * layout.length, true,
+        fillCol, true, disabled, theme
     );
 
     // 3. Draw low and high thumb knobs via active style painter

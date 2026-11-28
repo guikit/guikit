@@ -687,22 +687,11 @@ void detail::HybridSlider::Render(
     }
 
     // 1. Single continuous full-length track groove + active fill via active style painter
-    const keel::f32 effTrackH = theme.Painter().GetSliderTrackHeight(theme, m.trackHeight, /*isRange=*/false);
-    const keel::f32 effHalfTrack = effTrackH * 0.5f;
-    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
-    const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-
-    const Rect fullTrackRect = vertical
-        ? Rect(keel::floor(layout.cross - effHalfTrack), layout.start - layout.length, effTrackH, layout.length)
-        : Rect(layout.start, keel::floor(layout.cross - effHalfTrack), layout.length, effTrackH);
     const bool hasFill = (curMode > 0u) && (thumbTravel > 0.0f);
-    const Rect fillRect = vertical
-        ? Rect(fullTrackRect.x, thumbCenter.y, effTrackH, hasFill ? thumbTravel : 0.0f)
-        : Rect(layout.start, fullTrackRect.y, hasFill ? thumbTravel : 0.0f, effTrackH);
-    theme.Painter().DrawSliderTrack(
-        canvas, theme, fullTrackRect, fillRect, vertical, hasFill,
-        trackBg, trackBorder, fillCol, m.cornerRadius, opts.color.HasAny()
+    RenderSliderTrack(
+        canvas, layout, m, 0.0f, hasFill ? thumbTravel : 0.0f, hasFill,
+        fillCol, opts.color.HasAny(), disabled, theme
     );
 
     // 2. Discrete stop tick marks + subtle boundary tick at continuous `min` right on the track

@@ -26,8 +26,7 @@ struct ChromeMetrics {
     keel::f32  buttonPressOffset{0.0f};      ///< Pressed/active button content shift in dp
     keel::f32  frameBevelInset{0.0f};        ///< Inner frame/bevel inset in dp (e.g. 2.0f for Bevel3D)
     keel::f32  tabGapOverride{-1.0f};        ///< Explicit TabBar gap in dp (< 0 uses theme default)
-    keel::f32  sliderTrackHeight{0.0f};      ///< Fixed slider track height in dp (<= 0 uses widget default)
-    keel::f32  rangeSliderTrackHeight{0.0f}; ///< Fixed range slider track height in dp (<= 0 uses widget default)
+    keel::f32  sliderTrackMinHeight{0.0f};   ///< Minimum slider track thickness in dp (e.g. 6.0f for Bevel3D double-bevel groove)
     keel::f32  progressBarMinHeight{0.0f};   ///< Minimum progress bar thickness in dp
     keel::f32  progressBarHeightBonus{0.0f}; ///< Extra progress bar thickness in dp (e.g. segmented 3D well)
     BadgeShape badgeShape{BadgeShape::Pill}; ///< Badge/tag corner rounding policy
@@ -257,15 +256,15 @@ public:
     /// Returns effective slider track thickness in dp for the active chrome.
     [[nodiscard]] keel::f32 GetSliderTrackHeight(
         const UiTheme& theme,
-        keel::f32 defaultHeight,
-        bool isRange = false
+        keel::f32 defaultHeight
     ) const noexcept {
         if (theme.sliderStyle.trackHeight > 0.0f) {
             return defaultHeight;
         }
         const ChromeMetrics m = GetChromeMetrics(theme);
-        const keel::f32 fixed = isRange ? m.rangeSliderTrackHeight : m.sliderTrackHeight;
-        return (fixed > 0.0f) ? fixed : defaultHeight;
+        return (m.sliderTrackMinHeight > 0.0f)
+            ? keel::max(defaultHeight, m.sliderTrackMinHeight)
+            : defaultHeight;
     }
 
     /// Returns effective progress bar thickness in dp for the active chrome.

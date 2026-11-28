@@ -48,9 +48,10 @@ SliderControlMetrics ComputeSliderControlMetrics(
     Orientation orientation
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
+    const keel::f32 effTrackH = theme.Painter().GetSliderTrackHeight(theme, m.trackHeight);
     const keel::f32 innerGap = kSliderInnerGap;
     SliderControlMetrics cm{};
-    cm.trackRowH = keel::max(m.defaultHeight, m.thumbSize);
+    cm.trackRowH = keel::max(keel::max(m.defaultHeight, m.thumbSize), effTrackH);
     if (IsVerticalSlider(orientation)) {
         cm.extraLabelsW = extraLabelsBand;   // labels column right of the track
     } else {
@@ -111,7 +112,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
     if (IsVerticalSlider(orientation)) {
         // Fader: track column + optional Thumb readout; texts and value stacked above / below the track
         const auto lineH = [&](keel::f32 font) { return canvas ? canvas->GetLineHeight(font) : theme.GetLineHeight(font); };
-        cm.crossW = keel::max(m.defaultHeight, m.thumbSize);
+        cm.crossW = keel::max(keel::max(m.defaultHeight, m.thumbSize), effTrackH);
         if (showValue && valuePlacement == Placement::Thumb) {
             cm.thumbValW = innerGap + cm.valReserveW;
         }
@@ -417,6 +418,40 @@ Color ResolveSliderActiveThumbColor(const StateColor& rawColor, const UiTheme& t
     return theme.ResolveSemanticAccent(rawColor, UiVariant::Primary, false, true, false);
 }
 
+void RenderSliderTrack(
+    ICanvas& canvas,
+    const SliderTrackLayout& layout,
+    const SliderMetrics& m,
+    keel::f32 fillStartTravel,
+    keel::f32 fillEndTravel,
+    bool hasFill,
+    Color fillColor,
+    bool explicitColor,
+    bool disabled,
+    const UiTheme& theme
+) noexcept {
+    const auto& pal = theme.palette;
+    const keel::f32 effTrackH = theme.Painter().GetSliderTrackHeight(theme, m.trackHeight);
+    const keel::f32 halfTrack = effTrackH * 0.5f;
+    const keel::f32 lo = keel::min(fillStartTravel, fillEndTravel);
+    const keel::f32 hi = keel::max(fillStartTravel, fillEndTravel);
+    const keel::f32 fillLen = keel::max(0.0f, hi - lo);
+
+    const Rect trackBgRect = layout.vertical
+        ? Rect(keel::floor(layout.cross - halfTrack), layout.start - layout.length, effTrackH, layout.length)
+        : Rect(layout.start, keel::floor(layout.cross - halfTrack), layout.length, effTrackH);
+    const Rect fillRect = layout.vertical
+        ? Rect(trackBgRect.x, layout.start - hi, effTrackH, fillLen)
+        : Rect(layout.start + lo, trackBgRect.y, fillLen, effTrackH);
+
+    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
+    const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
+    theme.Painter().DrawSliderTrack(
+        canvas, theme, trackBgRect, fillRect, layout.vertical, hasFill && (fillLen > 0.0f),
+        trackBg, trackBorder, fillColor, m.cornerRadius, explicitColor
+    );
+}
+
 
 } // namespace detail::slider_impl
 
@@ -680,7 +715,6 @@ void detail::Slider::Render(
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
     const SliderMetrics& m = theme.GetSlider(size);
-    const auto& pal = theme.palette;
     const keel::f64 rangeMin = keel::min(min, max);
     const keel::f64 rangeMax = keel::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
@@ -723,20 +757,10 @@ void detail::Slider::Render(
     }
 
     // 1 & 2. Draw track groove and optional active fill via active style painter
-    const keel::f32 effTrackH = theme.Painter().GetSliderTrackHeight(theme, m.trackHeight, /*isRange=*/false);
-    const keel::f32 halfTrack = effTrackH * 0.5f;
-    const Rect trackBgRect = vertical
-        ? Rect(keel::floor(layout.cross - halfTrack), layout.start - layout.length, effTrackH, layout.length)
-        : Rect(layout.start, keel::floor(layout.cross - halfTrack), layout.length, effTrackH);
-    const Rect fillRect = vertical
-        ? Rect(trackBgRect.x, thumbCenter.y, effTrackH, fillLen)
-        : Rect(layout.start, trackBgRect.y, fillLen, effTrackH);
-    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
-    const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-    theme.Painter().DrawSliderTrack(
-        canvas, theme, trackBgRect, fillRect, vertical, fillLen > 0.0f,
-        trackBg, trackBorder, fillCol, m.cornerRadius, opts.color.HasAny()
+    RenderSliderTrack(
+        canvas, layout, m, 0.0f, fillLen, fillLen > 0.0f,
+        fillCol, opts.color.HasAny(), disabled, theme
     );
 
     // 3. Draw thumb knob via active style painter
@@ -1041,20 +1065,10 @@ void detail::StepSlider::Render(
     }
 
     // 1 & 2. Draw track groove and optional active fill via active style painter
-    const keel::f32 effTrackH = theme.Painter().GetSliderTrackHeight(theme, m.trackHeight, /*isRange=*/false);
-    const keel::f32 effHalfTrack = effTrackH * 0.5f;
-    const Rect trackBgRect = vertical
-        ? Rect(keel::floor(layout.cross - effHalfTrack), layout.start - layout.length, effTrackH, layout.length)
-        : Rect(layout.start, keel::floor(layout.cross - effHalfTrack), layout.length, effTrackH);
-    const Rect fillRect = vertical
-        ? Rect(trackBgRect.x, thumbCenter.y, effTrackH, fillLen)
-        : Rect(layout.start, trackBgRect.y, fillLen, effTrackH);
-    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(theme.disabledOpacity) : pal.surfaceActive;
-    const Color trackBorder = disabled ? pal.border.WithAlphaF(theme.disabledOpacity) : pal.border;
     const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-    theme.Painter().DrawSliderTrack(
-        canvas, theme, trackBgRect, fillRect, vertical, fillLen > 0.0f,
-        trackBg, trackBorder, fillCol, m.cornerRadius, opts.color.HasAny()
+    RenderSliderTrack(
+        canvas, layout, m, 0.0f, fillLen, fillLen > 0.0f,
+        fillCol, opts.color.HasAny(), disabled, theme
     );
 
     // 3. Draw tick marks via active style painter

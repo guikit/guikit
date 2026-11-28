@@ -1053,8 +1053,7 @@ ChromeMetrics DefaultStylePainter::GetChromeMetrics(const UiTheme& theme) const 
     m.tabGapOverride = theme.chrome.tabGapOverride;
     if (theme.chrome.frame == FrameTreatment::Bevel3D) {
         m.frameBevelInset = 2.0f;
-        m.sliderTrackHeight = 4.0f;
-        m.rangeSliderTrackHeight = 6.0f;
+        m.sliderTrackMinHeight = 6.0f;
         m.recessedRegions = true;
     }
     if (theme.chrome.progressFill == ProgressFillStyle::Segmented) {
@@ -1282,14 +1281,46 @@ void DefaultStylePainter::DrawSliderTrack(
     const bool isBrutal = (theme.chrome.frame == FrameTreatment::HardShadow);
     const bool sharp = isBevel || (theme.sliderStyle.trackCaps == SliderTrackCaps::Square);
     const keel::f32 trackR = sharp ? 0.0f : ((vertical ? trackRect.w : trackRect.h) * 0.5f);
+    const bool drawFill = hasFill && (theme.sliderStyle.trackStyle == SliderTrackStyle::Filled || explicitColor);
 
     if (isBevel) {
+        const PixelGrid pg = PixelGrid::From(canvas);
+        const PixelGrid::SnappedPxRect tr = pg.SnapRectPx(trackRect);
+        const keel::i32 step = pg.UnitStepPx();
+        const Rect snappedTrack = pg.PxRectToLogical(tr);
+
         const Color grooveBg = (Color::ContrastRatio(pal.background, pal.surface) >= 1.08f)
             ? pal.background
             : pal.controlTrack;
-        canvas.DrawRect(trackRect, grooveBg);
-        DrawBevelFrame(canvas, trackRect, theme.bevel, /*sunken=*/true, /*thin=*/false);
-    } else if (isBrutal) {
+        canvas.DrawRect(snappedTrack, grooveBg);
+        DrawBevelFrame(canvas, snappedTrack, theme.bevel, /*sunken=*/true, /*thin=*/false);
+
+        if (drawFill) {
+            const keel::i32 wPx = tr.Width();
+            const keel::i32 hPx = tr.Height();
+            const keel::i32 insetPx = (wPx >= step * 5 && hPx >= step * 5)
+                ? (step * 2)
+                : ((wPx >= step * 3 && hPx >= step * 3) ? step : 0);
+            const keel::i32 innerX0 = tr.x0 + insetPx;
+            const keel::i32 innerY0 = tr.y0 + insetPx;
+            const keel::i32 innerX1 = tr.x1 - insetPx;
+            const keel::i32 innerY1 = tr.y1 - insetPx;
+
+            if (innerX1 > innerX0 && innerY1 > innerY0) {
+                const PixelGrid::SnappedPxRect fr = pg.SnapRectPx(fillRect);
+                const keel::i32 fx0 = vertical ? innerX0 : keel::max(innerX0, fr.x0);
+                const keel::i32 fx1 = vertical ? innerX1 : keel::min(innerX1, fr.x1);
+                const keel::i32 fy0 = vertical ? keel::max(innerY0, fr.y0) : innerY0;
+                const keel::i32 fy1 = vertical ? keel::min(innerY1, fr.y1) : innerY1;
+                if (fx1 > fx0 && fy1 > fy0) {
+                    canvas.DrawRect(pg.PxRectToLogical(fx0, fy0, fx1, fy1), fillColor);
+                }
+            }
+        }
+        return;
+    }
+
+    if (isBrutal) {
         const keel::f32 bw = keel::max(1.5f, 1.5f * keel::max(theme.borderScale, 0.5f));
         const Color bdr = (Color::ContrastRatio(trackBorder, trackBg) >= 1.25f)
             ? trackBorder
@@ -1299,16 +1330,8 @@ void DefaultStylePainter::DrawSliderTrack(
         canvas.DrawRoundRect(trackRect, trackR, trackBg, trackBorder, 1.0f);
     }
 
-    if (hasFill && (theme.sliderStyle.trackStyle == SliderTrackStyle::Filled || explicitColor)) {
-        if (isBevel) {
-            const Rect insetFill(
-                fillRect.x + (vertical ? 1.5f : 1.0f),
-                fillRect.y + (vertical ? 0.0f : 1.5f),
-                keel::max(1.0f, fillRect.w - (vertical ? 3.0f : 1.0f)),
-                keel::max(1.0f, fillRect.h - (vertical ? 1.0f : 3.0f))
-            );
-            canvas.DrawRect(insetFill, fillColor);
-        } else if (theme.fillStyle == FillStyle::Gradient) {
+    if (drawFill) {
+        if (theme.fillStyle == FillStyle::Gradient) {
             const Gradient fillGrad = theme.DeriveAccentGradient(fillColor, vertical ? 0.0f : 90.0f);
             canvas.DrawGradientRoundRect(fillRect, trackR, fillGrad);
         } else if (sharp) {

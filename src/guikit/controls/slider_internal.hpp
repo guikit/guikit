@@ -184,4 +184,19 @@ keel::f32 StepSliderLabelsBand(
 Color ResolveSliderTrackColor(const StateColor& rawColor, bool disabled, const UiTheme& theme) noexcept;
 Color ResolveSliderActiveThumbColor(const StateColor& rawColor, const UiTheme& theme) noexcept;
 
+/// Renders the shared slider track groove and optional active fill interval `[fillStartTravel .. fillEndTravel]`
+/// (measured along the travel axis from the min end) via `theme.Painter().DrawSliderTrack`.
+void RenderSliderTrack(
+    ICanvas& canvas,
+    const SliderTrackLayout& layout,
+    const SliderMetrics& m,
+    keel::f32 fillStartTravel,
+    keel::f32 fillEndTravel,
+    bool hasFill,
+    Color fillColor,
+    bool explicitColor,
+    bool disabled,
+    const UiTheme& theme
+) noexcept;
+
 } // namespace guikit::detail::slider_impl
