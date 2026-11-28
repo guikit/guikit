@@ -17785,14 +17785,18 @@ void TestTagAndReadoutWidgets() {
         CHECK(lastRes.rect.w >= 220.0f && lastRes.rect.h >= 60.0f);
         CHECK_NEAR(lastRes.displayedValue, 12.345, 1e-6);
 
-        // 3a. Click trailing tare button (◎)
+        // 3a. Click trailing momentary tare button (◎): pressed while held, returns to rest on release (no toggle state)
+        static_assert(![]<typename T = ReadoutChannel>() { return requires(T c) { c.actionActive; }; }());
         const Vec2 tarePt{lastRes.rect.Right() - 24.0f, lastRes.rect.Bottom() - 24.0f};
         ui.OnMouseMove(tarePt);
         ui.OnMouseDown(1);
         renderReadout();
         CHECK(lastRes.actionClicked);
+        CHECK(lastRes.pressed);
         ui.OnMouseUp(1);
         renderReadout();
+        CHECK(!lastRes.actionClicked);
+        CHECK(!lastRes.pressed);
 
         // 3b. Click value area -> opens Precision menu, select 4th item (precision = 3)
         const Vec2 valPt{lastRes.rect.x + 36.0f, lastRes.rect.Bottom() - 22.0f};

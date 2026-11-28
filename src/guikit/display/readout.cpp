@@ -283,7 +283,6 @@ struct ReadoutData {
     keel::StringRef unitText{};
     UiVariant valueVariant{UiVariant::Primary};
     bool showAction{false};
-    bool actionActive{false};
     bool actionDisabled{false};
     bool canOpenChannel{false};
     bool canOpenPrecision{false};
@@ -469,29 +468,22 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
         }
     }
 
-    // 7. Trailing action button (◎ Target / Tare)
+    // 7. Trailing momentary action button (◎ Target / Tare)
     if (data->showAction && g.actionRect.w > 0.0f && g.actionRect.h > 0.0f) {
         const bool actDis = disabled || data->actionDisabled;
         Color btnBg = isDark ? pal.surfaceElevated : pal.surfaceHover;
         Color btnBorder = pal.border;
         Color iconCol = pal.textSecondary;
 
-        if (data->actionActive && !actDis) {
-            btnBg = pal.accent.WithAlphaF(isDark ? 0.22f : 0.14f);
-            btnBorder = pal.accent.WithAlphaF(0.65f);
-            iconCol = pal.accent;
-        }
         if (!actDis) {
             if (data->actionPressed) {
                 btnBg = pal.surfaceActive;
                 btnBorder = pal.accent.WithAlphaF(0.75f);
                 iconCol = pal.textPrimary;
             } else if (data->actionHovered) {
-                btnBg = data->actionActive
-                    ? pal.accent.WithAlphaF(isDark ? 0.30f : 0.20f)
-                    : (isDark ? pal.surfaceActive : Color::Lerp(pal.surfaceHover, pal.border, 0.25f));
+                btnBg = isDark ? pal.surfaceActive : Color::Lerp(pal.surfaceHover, pal.border, 0.25f);
                 btnBorder = pal.borderHover;
-                iconCol = data->actionActive ? pal.accent : pal.textPrimary;
+                iconCol = pal.textPrimary;
             }
         } else {
             btnBg = btnBg.WithAlphaF(theme.disabledOpacity);
@@ -508,13 +500,13 @@ void detail::Readout::Render(const Node* node, ICanvas& canvas, const UiTheme& t
             .borderWidth = 1.0f,
             .hovered = data->actionHovered && !actDis,
             .pressed = data->actionPressed && !actDis,
-            .active = data->actionActive && !actDis,
+            .active = false,
             .disabled = actDis,
             .accent = pal.accent
         });
 
         if (opts.actionIcon.IsValid()) {
-            const keel::f32 shift = theme.Painter().GetButtonContentOffset(theme, data->actionPressed, data->actionActive, actDis);
+            const keel::f32 shift = theme.Painter().GetButtonContentOffset(theme, data->actionPressed, false, actDis);
             const keel::f32 icSz = keel::min(m.actionIconSize, g.actionRect.w * 0.65f);
             const Rect icRect(
                 g.actionRect.x + (g.actionRect.w - icSz) * 0.5f + shift,
@@ -791,7 +783,6 @@ ReadoutResponse detail::Readout::Run(
     data->unitText = unitText;
     data->valueVariant = activeCh.variant;
     data->showAction = activeCh.showAction;
-    data->actionActive = activeCh.actionActive;
     data->actionDisabled = activeCh.actionDisabled;
     data->canOpenChannel = canOpenChannel;
     data->canOpenPrecision = canOpenPrecision;
@@ -819,7 +810,6 @@ ReadoutResponse detail::Readout::Run(
         unitText,
         activeCh.variant,
         activeCh.showAction,
-        activeCh.actionActive,
         activeCh.actionDisabled,
         opts.actionIcon,
         opts.background,

@@ -40,8 +40,7 @@ struct ReadoutChannel {
     keel::i32 defaultUnitIndex{0};                 ///< Unit selected when switching to this channel
     keel::i32 defaultPrecision{2};                 ///< Decimal precision selected when switching to this channel
     UiVariant variant{UiVariant::Primary};         ///< Semantic value color (Primary, Info, Warning, Danger for threshold alert...)
-    bool showAction{true};                         ///< Show trailing action button (e.g. ◎ relative zero / reset)
-    bool actionActive{false};                      ///< Highlight trailing action button as active/engaged (e.g. relative zero active)
+    bool showAction{true};                         ///< Show trailing momentary action button (e.g. ◎ zero / tare)
     bool actionDisabled{false};                    ///< Disable only the trailing action button
     UiText actionTooltip{};                        ///< Optional hover tooltip for the trailing action button
 };
