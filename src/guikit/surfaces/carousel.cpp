@@ -247,13 +247,13 @@ void detail::Carousel::Arrange(Node* node, const Rect& availableRect, const UiTh
         return;
     }
 
-    // 3. Overflow detected: compute arrow dimensions from theme tokens
+    // 3. Overflow detected: compute full-height edge arrow dimensions from theme tokens
     const CarouselMetrics& cm = theme.GetCarousel(node->uiSize);
     const keel::f32 arrowMargin = cm.margin;
-    const keel::f32 arrowBtnH = keel::max(0.0f, keel::min(fullH - cm.margin * 2.0f, cm.arrowButtonSize));
-    const keel::f32 arrowBtnW = arrowBtnH; // Clean square button
+    const keel::f32 arrowBtnW = keel::max(0.0f, keel::min(fullW * 0.35f, cm.arrowButtonSize));
+    const keel::f32 arrowBtnH = fullH;
     const keel::f32 arrowGap = cm.gap;
-    const keel::f32 arrowY = startY + (fullH - arrowBtnH) * 0.5f;
+    const keel::f32 arrowY = startY;
     const keel::f32 btnGutter = arrowMargin + arrowBtnW + arrowGap;
     const keel::f32 maxScrollX = keel::max(0.0f, totalChildrenW - fullW);
 
@@ -469,66 +469,60 @@ void detail::Carousel::RenderArrows(
     if (!node) return;
     const auto& pal = theme.palette;
     const CarouselMetrics& cm = theme.GetCarousel(size);
-    const VariantColors& ghost = theme.GetVariant(UiVariant::Ghost);
+    const VariantColors& def = theme.GetVariant(UiVariant::Default);
+    const bool disabled = node->disabled;
+    const keel::f32 btnRadius = keel::min(cm.cornerRadius, theme.GetRadius(size));
 
-    // Refined ghost chevron navigation buttons
+    // Full-height chrome-aware edge scroll buttons (raised 3D in Classic3D, framed in Brutalist, surface button in Modern/Fluent/Glass/Luminous)
     auto drawArrow = [&](const Rect& rect, bool hovered, bool pressed, bool isLeft) {
         if (rect.w <= 0.0f || rect.h <= 0.0f) return;
 
-        Color bg = Color::Transparent();
-        Color iconCol = pal.textSecondary;
-
-        if (pressed) {
-            bg = ghost.bgActive;
-            iconCol = pal.accent;
-        } else if (hovered) {
-            bg = ghost.bgHover;
-            iconCol = ghost.text;
+        const bool effHov = hovered && !disabled;
+        const bool effPress = pressed && !disabled;
+        Color bg = effPress ? def.bgActive : (effHov ? def.bgHover : def.bg);
+        Color borderCol = (def.borderWidth > 0.0f) ? def.border : pal.border;
+        if (effHov || effPress) {
+            borderCol = pal.borderHover;
+        }
+        Color iconCol = effPress ? pal.accent : (effHov ? pal.textPrimary : pal.textSecondary);
+        if (disabled) {
+            bg = bg.WithAlphaF(theme.disabledOpacity);
+            borderCol = borderCol.WithAlphaF(theme.disabledOpacity);
+            iconCol = pal.textDisabled;
         }
 
-        if (bg.a > 0 || hovered || pressed) {
-            theme.Painter().DrawFrame(canvas, theme, FrameKind::ToolbarButton, FramePaintParams{
-                .rect = rect,
-                .radius = cm.cornerRadius,
-                .bg = bg,
-                .hovered = hovered,
-                .pressed = pressed,
-                .accent = pal.accent
-            });
+        theme.Painter().DrawFrame(canvas, theme, FrameKind::Button, FramePaintParams{
+            .rect = rect,
+            .radius = btnRadius,
+            .bg = bg,
+            .border = borderCol,
+            .borderWidth = keel::max(1.0f, def.borderWidth),
+            .hovered = effHov,
+            .pressed = effPress,
+            .disabled = disabled,
+            .accent = pal.accent
+        });
+
+        const keel::f32 shift = theme.Painter().GetButtonContentOffset(theme, effPress, false, disabled);
+        const keel::f32 isz = keel::min(keel::max(0.0f, keel::min(rect.w, rect.h) - 4.0f), cm.iconSize);
+        if (isz > 0.0f) {
+            const Rect iconBounds(
+                rect.x + (rect.w - isz) * 0.5f + shift,
+                rect.y + (rect.h - isz) * 0.5f + shift,
+                isz, isz
+            );
+            const Icon arrowIcon = isLeft ? Icon::ChevronLeft() : Icon::ChevronRight();
+            arrowIcon.Draw(canvas, iconBounds, iconCol);
         }
-
-        const keel::f32 shift = theme.Painter().GetButtonContentOffset(theme, pressed, false, false);
-        const keel::f32 isz = keel::min(rect.w, cm.iconSize);
-        const Rect iconBounds(
-            rect.x + (rect.w - isz) * 0.5f + shift,
-            rect.y + (rect.h - isz) * 0.5f + shift,
-            isz, isz
-        );
-
-        Icon arrowIcon = isLeft ? Icon::ChevronLeft() : Icon::ChevronRight();
-        arrowIcon.Draw(canvas, iconBounds, iconCol);
     };
 
     auto* cData = node->As<CarouselData>();
     if (!cData) return;
 
-    const keel::f32 sepInsetY = keel::max(4.0f, keel::round(node->computedRect.h * 0.18f));
-    const keel::f32 sepY1 = node->computedRect.y + sepInsetY;
-    const keel::f32 sepY2 = node->computedRect.Bottom() - sepInsetY;
-    const Color sepCol = pal.borderSubtle.WithAlphaF(0.65f);
-
     if (cData->showLeftArrow) {
         drawArrow(cData->leftArrowRect, cData->leftArrowHovered, cData->leftArrowPressed, true);
-        if (sepY2 > sepY1) {
-            const keel::f32 sepX = cData->viewportRect.x;
-            theme.Painter().DrawDivider(canvas, theme, Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
-        }
     }
     if (cData->showRightArrow) {
-        if (sepY2 > sepY1) {
-            const keel::f32 sepX = keel::floor(cData->viewportRect.Right()) - 0.5f;
-            theme.Painter().DrawDivider(canvas, theme, Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
-        }
         drawArrow(cData->rightArrowRect, cData->rightArrowHovered, cData->rightArrowPressed, false);
     }
 }

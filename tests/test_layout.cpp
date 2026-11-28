@@ -810,8 +810,8 @@ void TestCarouselArrowScaling() {
     CHECK(d1->showRightArrow == true);
     const keel::f32 h1 = d1->rightArrowRect.h;
     const keel::f32 w1 = d1->rightArrowRect.w;
-    CHECK_NEAR(h1, w1, 0.001f); // Square button
-    CHECK(h1 >= 18.0f && h1 <= 23.0f); // Md arrow button token is 19.5 dp
+    CHECK_NEAR(h1, 36.0f, 0.001f); // Full-height scroll button spans content height
+    CHECK(w1 >= 18.0f && w1 <= 23.0f); // Md arrow button width token is 19.5 dp
 
     // 2. Arrange at 2.0x UI size factor (UiSize::Factor(2.0f), height 72px)
     Node* c2 = arena.create<Node>();
@@ -840,10 +840,38 @@ void TestCarouselArrowScaling() {
     CHECK(d2->showRightArrow == true);
     const keel::f32 h2 = d2->rightArrowRect.h;
     const keel::f32 w2 = d2->rightArrowRect.w;
-    CHECK_NEAR(h2, w2, 0.001f); // Square button
-    // The 2.0x arrow button must be approximately double the 1.0x arrow button height (not capped at 26px!)
-    CHECK_NEAR(h2, h1 * 2.0f, 2.0f);
-    CHECK(h2 > 37.0f);
+    CHECK_NEAR(h2, 72.0f, 0.001f); // Full-height scroll button
+    // The 2.0x arrow button width must scale cleanly with UiSize (not capped!)
+    CHECK_NEAR(w2, w1 * 2.0f, 2.0f);
+    CHECK(w2 > 37.0f);
+
+    // 3. Tall card ribbon (height 140px at Md): width stays token-sized (~19.5dp), height stretches to full 140px
+    Node* c3 = arena.create<Node>();
+    c3->type = NodeType::Carousel;
+    c3->direction = FlexDirection::Row;
+    c3->widthMode = SizeMode::Stretch;
+    c3->heightMode = SizeMode::Fixed;
+    c3->fixedHeight = 140.0f;
+    c3->padding = Padding::All(8.0f);
+    c3->measureFn = &detail::Carousel::Measure;
+    c3->arrangeFn = &detail::Carousel::Arrange;
+    auto* d3 = arena.create<CarouselData>();
+    c3->payload = d3;
+
+    for (keel::i32 i = 0; i < 6; ++i) {
+        Node* card = arena.create<Node>();
+        card->widthMode = SizeMode::Fixed;
+        card->fixedWidth = 160.0f;
+        c3->AddChild(card);
+    }
+
+    Solver::Measure(c3, nullptr, theme1);
+    Solver::Arrange(c3, Rect(0.0f, 0.0f, 300.0f, 140.0f), theme1);
+
+    CHECK(d3->showRightArrow == true);
+    CHECK_NEAR(d3->rightArrowRect.w, w1, 0.001f);
+    CHECK_NEAR(d3->rightArrowRect.y, 8.0f, 0.001f);
+    CHECK_NEAR(d3->rightArrowRect.h, 124.0f, 0.001f); // 140 - 2*8 padding
 }
 
 void TestAspectRatioMinHeightAndStretchFallback() {
